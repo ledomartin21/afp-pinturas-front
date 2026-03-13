@@ -119,7 +119,7 @@ export function CatalogScreen({ onProductClick, onNavigate }: CatalogScreenProps
     loadCarousels()
   }, [])
 
-  // Auto-advance del carrusel cada 5 segundos
+  // Auto-advance del carrusel cada 2.5 segundos
   useEffect(() => {
     if (carousels.length === 0) return
     const totalFlyers = carousels.reduce((acc, c) => Math.max(acc, c.flyers?.length || 0), 0)
@@ -127,7 +127,7 @@ export function CatalogScreen({ onProductClick, onNavigate }: CatalogScreenProps
 
     const interval = setInterval(() => {
       setActiveCarouselIndex((prev) => (prev + 1) % totalFlyers)
-    }, 5000)
+    }, 2500)
 
     return () => clearInterval(interval)
   }, [carousels])

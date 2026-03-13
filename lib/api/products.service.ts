@@ -62,9 +62,19 @@ export const productsService = {
       price: Number(api.precio || 0),
       stock: Number(api.stock || 0),
       image: api.urlImagen || "/placeholder.svg",
+      images: api.urlImagen ? [api.urlImagen] : [],
       category,
       brand,
     }
+  },
+
+  async getProductImages(codigoProducto: string): Promise<string[]> {
+    const imgs = await apiClient.get<{ id: number; url: string }[]>(`/producto/${codigoProducto}/imagen`)
+    return imgs
+      .slice()
+      .sort((a, b) => a.id - b.id)
+      .map((img) => img.url)
+      .filter((url): url is string => Boolean(url))
   },
 
   async getProductsPaginated(page: number, limit: number, filters?: ProductFilters): Promise<PaginatedProductsResult> {

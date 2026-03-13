@@ -16,7 +16,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { ArrowLeft, Minus, Plus, ShoppingCart, Percent, MessageCircle, AlertTriangle, CalendarClock, Loader2 } from "lucide-react"
+import { ArrowLeft, ChevronLeft, ChevronRight, Minus, Plus, ShoppingCart, Percent, MessageCircle, AlertTriangle, CalendarClock, Loader2 } from "lucide-react"
 import type { Product } from "@/app/page"
 import { productsService } from "@/lib/api"
 
@@ -41,6 +41,9 @@ export function ProductDetailScreen({ product, onAddToCart, onBack, onProductCli
   const scrollRef = useRef<HTMLDivElement>(null)
   const [suggestedProducts, setSuggestedProducts] = useState<Product[]>([])
   const [suggestedLoading, setSuggestedLoading] = useState(false)
+  const [galleryImages, setGalleryImages] = useState<string[]>([])
+  const [galleryLoading, setGalleryLoading] = useState(false)
+  const [activeImageIndex, setActiveImageIndex] = useState(0)
 
   // Scroll al tope cuando cambia el producto
   useEffect(() => {
@@ -49,7 +52,32 @@ export function ProductDetailScreen({ product, onAddToCart, onBack, onProductCli
     setDiscount(0)
     setShowFeedback(false)
     setShowReserveConfirm(false)
+    setActiveImageIndex(0)
   }, [product?.id])
+
+  useEffect(() => {
+    if (!product) return
+
+    const loadImages = async () => {
+      try {
+        setGalleryLoading(true)
+        const urls = await productsService.getProductImages(product.id)
+        if (urls.length > 0) {
+          setGalleryImages(urls.slice(0, 10))
+        } else if (product.image) {
+          setGalleryImages([product.image])
+        } else {
+          setGalleryImages(["/placeholder.svg"])
+        }
+      } catch {
+        setGalleryImages(product.image ? [product.image] : ["/placeholder.svg"])
+      } finally {
+        setGalleryLoading(false)
+      }
+    }
+
+    loadImages()
+  }, [product?.id, product?.image])
 
   // Cargar productos relacionados desde el backend
   useEffect(() => {
@@ -99,6 +127,7 @@ export function ProductDetailScreen({ product, onAddToCart, onBack, onProductCli
 
   const handleReserve = () => {
     setShowReserveDialog(false)
+    onAddToCart(product, quantity, discount)
     setShowReserveConfirm(true)
     setTimeout(() => setShowReserveConfirm(false), 3000)
   }
@@ -110,6 +139,18 @@ export function ProductDetailScreen({ product, onAddToCart, onBack, onProductCli
 
   const discountedPrice = product.price * (1 - discount / 100)
   const subtotal = discountedPrice * quantity
+  const currentImage = galleryImages[activeImageIndex] || product.image || "/placeholder.svg"
+  const canMoveGallery = galleryImages.length > 1
+
+  const goPrev = () => {
+    if (galleryImages.length <= 1) return
+    setActiveImageIndex((i) => (i - 1 + galleryImages.length) % galleryImages.length)
+  }
+
+  const goNext = () => {
+    if (galleryImages.length <= 1) return
+    setActiveImageIndex((i) => (i + 1) % galleryImages.length)
+  }
 
   const openWhatsApp = () => {
     window.open(
@@ -142,10 +183,36 @@ export function ProductDetailScreen({ product, onAddToCart, onBack, onProductCli
         {/* Imagen */}
         <div className="relative bg-card">
           <img
-            src={product.image || "/placeholder.svg"}
+            src={currentImage}
             alt={product.name}
             className={`w-full aspect-square object-cover ${isOutOfStock ? "opacity-50" : ""}`}
           />
+          {galleryLoading && (
+            <div className="absolute inset-0 flex items-center justify-center bg-background/50">
+              <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+            </div>
+          )}
+          {canMoveGallery && (
+            <>
+              <button
+                onClick={goPrev}
+                className="absolute left-3 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full bg-black/50 text-white flex items-center justify-center"
+                aria-label="Imagen anterior"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+              <button
+                onClick={goNext}
+                className="absolute right-3 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full bg-black/50 text-white flex items-center justify-center"
+                aria-label="Imagen siguiente"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-2.5 py-1 text-xs text-white">
+                {activeImageIndex + 1} / {galleryImages.length}
+              </div>
+            </>
+          )}
           {product.isPromo && !isOutOfStock && (
             <Badge className="absolute top-4 right-4 bg-accent text-accent-foreground text-sm px-3 py-1.5 font-bold">
               OFERTA
@@ -160,6 +227,24 @@ export function ProductDetailScreen({ product, onAddToCart, onBack, onProductCli
             </div>
           )}
         </div>
+
+        {galleryImages.length > 1 && (
+          <div className="bg-card border-b px-3 py-2">
+            <div className="flex gap-2 overflow-x-auto">
+              {galleryImages.map((img, idx) => (
+                <button
+                  key={`${img}-${idx}`}
+                  onClick={() => setActiveImageIndex(idx)}
+                  className={`h-16 w-16 shrink-0 overflow-hidden rounded-md border-2 ${
+                    idx === activeImageIndex ? "border-primary" : "border-border"
+                  }`}
+                >
+                  <img src={img} alt={`Miniatura ${idx + 1}`} className="h-full w-full object-cover" />
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="p-4 space-y-4">
           {/* Info */}

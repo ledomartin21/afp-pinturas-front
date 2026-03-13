@@ -33,6 +33,7 @@ export type Product = {
   price: number
   stock: number
   image: string
+  images?: string[]
   category: string
   brand?: string
   isPromo?: boolean
