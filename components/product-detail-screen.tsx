@@ -16,8 +16,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { ArrowLeft, Minus, Plus, ShoppingCart, Percent, MessageCircle, AlertTriangle, CalendarClock } from "lucide-react"
+import { ArrowLeft, Minus, Plus, ShoppingCart, Percent, MessageCircle, AlertTriangle, CalendarClock, Loader2 } from "lucide-react"
 import type { Product } from "@/app/page"
+import { productsService } from "@/lib/api"
 
 interface ProductDetailScreenProps {
   product: Product | null
@@ -27,18 +28,9 @@ interface ProductDetailScreenProps {
   isAdmin: boolean
 }
 
-const ALL_PRODUCTS: Product[] = [
-  { id: "1", name: "Taladro Percutor", price: 45999, stock: 12, image: "/power-drill-tool.jpg", category: "Herramientas", brand: "Bosch", isPromo: true },
-  { id: "2", name: "Juego de Llaves", price: 12500, stock: 25, image: "/wrench-set-tools.jpg", category: "Herramientas", brand: "Stanley", isPromo: true },
-  { id: "3", name: "Destornilladores", price: 8900, stock: 0, image: "/screwdriver-set.jpg", category: "Herramientas", brand: "Stanley" },
-  { id: "4", name: "Pintura Latex Blanca 20L", price: 28500, stock: 8, image: "/white-paint-bucket.jpg", category: "Pintura", brand: "Alba" },
-  { id: "5", name: "Rodillo para Pintar", price: 3200, stock: 45, image: "/paint-roller.png", category: "Pintura", brand: "AFP" },
-  { id: "6", name: "Cemento 50kg", price: 15800, stock: 0, image: "/cement-bag.png", category: "Construccion", brand: "Loma Negra" },
-  { id: "7", name: "Amoladora Angular", price: 38900, stock: 6, image: "/angle-grinder-sparks.png", category: "Herramientas", brand: "Bosch" },
-  { id: "8", name: "Martillo Carpintero", price: 7500, stock: 18, image: "/claw-hammer.png", category: "Herramientas", brand: "Tramontina" },
-]
+import { APP_CONSTANTS } from "@/lib/config/constants"
 
-const WSP_NUMBER = "5491112345678"
+const WSP_NUMBER = APP_CONSTANTS.WHATSAPP_NUMBER
 
 export function ProductDetailScreen({ product, onAddToCart, onBack, onProductClick, isAdmin }: ProductDetailScreenProps) {
   const [quantity, setQuantity] = useState(1)
@@ -47,6 +39,8 @@ export function ProductDetailScreen({ product, onAddToCart, onBack, onProductCli
   const [showReserveConfirm, setShowReserveConfirm] = useState(false)
   const [discount, setDiscount] = useState(0)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const [suggestedProducts, setSuggestedProducts] = useState<Product[]>([])
+  const [suggestedLoading, setSuggestedLoading] = useState(false)
 
   // Scroll al tope cuando cambia el producto
   useEffect(() => {
@@ -56,6 +50,27 @@ export function ProductDetailScreen({ product, onAddToCart, onBack, onProductCli
     setShowFeedback(false)
     setShowReserveConfirm(false)
   }, [product?.id])
+
+  // Cargar productos relacionados desde el backend
+  useEffect(() => {
+    if (!product) return
+
+    const loadRelated = async () => {
+      try {
+        setSuggestedLoading(true)
+        const result = await productsService.getProductsPaginated(1, 6, {
+          category: product.category,
+        })
+        setSuggestedProducts(result.items.filter((p) => p.id !== product.id).slice(0, 4))
+      } catch {
+        setSuggestedProducts([])
+      } finally {
+        setSuggestedLoading(false)
+      }
+    }
+
+    loadRelated()
+  }, [product?.id, product?.category])
 
   if (!product) {
     return (
@@ -67,10 +82,6 @@ export function ProductDetailScreen({ product, onAddToCart, onBack, onProductCli
 
   const isOutOfStock = product.stock === 0
   const exceedsStock = quantity > product.stock && product.stock > 0
-
-  const suggestedProducts = ALL_PRODUCTS.filter(
-    (p) => p.id !== product.id && p.category === product.category
-  ).slice(0, 4)
 
   const handleAddToCart = () => {
     if (isOutOfStock) {
@@ -262,7 +273,14 @@ export function ProductDetailScreen({ product, onAddToCart, onBack, onProductCli
           </button>
 
           {/* Sugerencias - Grid como en catalogo */}
-          {suggestedProducts.length > 0 && (
+          {suggestedLoading ? (
+            <div className="space-y-3 pt-1">
+              <h3 className="text-sm font-bold">Productos Relacionados</h3>
+              <div className="flex items-center justify-center py-6">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              </div>
+            </div>
+          ) : suggestedProducts.length > 0 ? (
             <div className="space-y-3 pt-1">
               <h3 className="text-sm font-bold">Productos Relacionados</h3>
               <div className="grid grid-cols-2 gap-3">
@@ -298,7 +316,7 @@ export function ProductDetailScreen({ product, onAddToCart, onBack, onProductCli
                 ))}
               </div>
             </div>
-          )}
+          ) : null}
         </div>
       </div>
 

@@ -1,6 +1,6 @@
 "use client"
 
-import { Home, ShoppingCart, Package, User } from "lucide-react"
+import { Home, ShoppingCart, Package, User, Settings } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import type { Screen } from "@/app/page"
 
@@ -8,21 +8,27 @@ interface MobileNavProps {
   currentScreen: Screen
   onNavigate: (screen: Screen) => void
   cartCount: number
+  isAdmin?: boolean
 }
 
-export function MobileNav({ currentScreen, onNavigate, cartCount }: MobileNavProps) {
+export function MobileNav({ currentScreen, onNavigate, cartCount, isAdmin }: MobileNavProps) {
   const navItems = [
     { screen: "catalog" as Screen, icon: Home, label: "Inicio" },
     { screen: "cart" as Screen, icon: ShoppingCart, label: "Carrito", badge: cartCount },
     { screen: "orders" as Screen, icon: Package, label: "Pedidos" },
     { screen: "profile" as Screen, icon: User, label: "Perfil" },
+    ...(isAdmin
+      ? [{ screen: "admin-carousel" as Screen, icon: Settings, label: "Admin" }]
+      : []),
   ]
+
+  const gridCols = isAdmin ? "grid-cols-5" : "grid-cols-4"
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-card border-t shadow-lg z-40">
       <div className="h-0.5 bg-accent" />
       <div className="mx-auto max-w-md">
-        <div className="grid grid-cols-4 h-16">
+        <div className={`grid ${gridCols} h-16`}>
           {navItems.map((item) => {
             const Icon = item.icon
             const isActive = currentScreen === item.screen

@@ -33,7 +33,7 @@ async function refreshAccessToken(): Promise<boolean> {
   }
 }
 
-type HttpMethod = "GET" | "POST" | "PUT" | "DELETE"
+type HttpMethod = "GET" | "POST" | "PUT" | "DELETE" | "PATCH"
 
 async function request<T>(method: HttpMethod, url: string, data?: any, hasRetried = false): Promise<T> {
   const response = await fetch(`${API_CONFIG.BASE_URL}${url}`, {
@@ -68,5 +68,26 @@ export const apiClient = {
 
   async delete<T>(url: string): Promise<T> {
     return request<T>("DELETE", url)
+  },
+
+  async patch<T>(url: string, data?: any): Promise<T> {
+    return request<T>("PATCH", url, data)
+  },
+
+  async upload<T>(url: string, formData: FormData, hasRetried = false): Promise<T> {
+    const response = await fetch(`${API_CONFIG.BASE_URL}${url}`, {
+      method: "POST",
+      credentials: "include",
+      body: formData,
+    })
+
+    if (response.status === 401 && !hasRetried) {
+      const refreshed = await refreshAccessToken()
+      if (refreshed) {
+        return apiClient.upload<T>(url, formData, true)
+      }
+    }
+
+    return handleResponse<T>(response)
   },
 }

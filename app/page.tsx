@@ -10,6 +10,7 @@ import { TransferPaymentScreen } from "@/components/transfer-payment-screen"
 import { OrdersScreen } from "@/components/orders-screen"
 import { OrderDetailScreen } from "@/components/order-detail-screen"
 import { ProfileScreen } from "@/components/profile-screen"
+import { AdminCarouselScreen } from "@/components/admin-carousel-screen"
 import { MobileNav } from "@/components/mobile-nav"
 import { authService, ordersService } from "@/lib/api"
 import type { CreatePedidoPayload } from "@/lib/api/orders.service"
@@ -24,6 +25,7 @@ export type Screen =
   | "orders"
   | "order-detail"
   | "profile"
+  | "admin-carousel"
 
 export type Product = {
   id: string
@@ -264,6 +266,12 @@ export default function Home() {
             }}
           />
         )
+      case "admin-carousel":
+        return (
+          <AdminCarouselScreen
+            onBack={() => navigateToScreen("profile")}
+          />
+        )
       default:
         return null
     }
@@ -278,6 +286,7 @@ export default function Home() {
             currentScreen={currentScreen}
             onNavigate={navigateToScreen}
             cartCount={cart.reduce((sum, item) => sum + item.quantity, 0)}
+            isAdmin={isAdmin}
           />
         )}
       </div>

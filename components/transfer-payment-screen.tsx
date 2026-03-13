@@ -20,7 +20,9 @@ const BANK_DATA = {
   tipoCuenta: "Cuenta Corriente",
 }
 
-const WSP_NUMBER = "5491112345678"
+import { APP_CONSTANTS } from "@/lib/config/constants"
+
+const WSP_NUMBER = APP_CONSTANTS.WHATSAPP_NUMBER
 
 export function TransferPaymentScreen({ total, onConfirm, onBack }: TransferPaymentScreenProps) {
   const [copiedField, setCopiedField] = useState<string | null>(null)

@@ -22,33 +22,18 @@ import {
   ChevronRight,
 } from "lucide-react"
 import type { Product, Screen } from "@/app/page"
-import { productsService } from "@/lib/api"
+import { productsService, carouselService } from "@/lib/api"
+import { APP_CONSTANTS } from "@/lib/config/constants"
+import type { Carrusel } from "@/lib/types"
 
 interface CatalogScreenProps {
   onProductClick: (product: Product) => void
   onNavigate: (screen: Screen) => void
 }
 
-const FEATURED_BANNERS = [
-  {
-    id: "banner-1",
-    title: "HIDROLAVADORAS",
-    subtitle: "GX-H90P / 160B",
-    description: "1700W | 1350W / 1680bar | 2150w",
-    image: "/industrial-power-washer-hydrolavadora.jpg",
-  },
-  {
-    id: "banner-2",
-    title: "LISTA de PRECIOS",
-    subtitle: "ACTUALIZADA!",
-    description: "Consulta nuestros mejores precios",
-    image: "/price-list-hardware-store.jpg",
-  },
-]
-
-const WSP_NUMBER = "5491112345678"
-const ITEMS_PER_PAGE = 20
-const PAGE_WINDOW_SIZE = 5
+const ITEMS_PER_PAGE = APP_CONSTANTS.ITEMS_PER_PAGE
+const PAGE_WINDOW_SIZE = APP_CONSTANTS.PAGE_WINDOW_SIZE
+const WSP_NUMBER = APP_CONSTANTS.WHATSAPP_NUMBER
 
 export function CatalogScreen({ onProductClick, onNavigate }: CatalogScreenProps) {
   const [isLoading, setIsLoading] = useState(true)
@@ -62,6 +47,9 @@ export function CatalogScreen({ onProductClick, onNavigate }: CatalogScreenProps
   const [priceRange, setPriceRange] = useState([0, 50000])
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
+  const [carousels, setCarousels] = useState<Carrusel[]>([])
+  const [carouselsLoading, setCarouselsLoading] = useState(true)
+  const [activeCarouselIndex, setActiveCarouselIndex] = useState(0)
 
   useEffect(() => {
     const loadProducts = async () => {
@@ -106,6 +94,43 @@ export function CatalogScreen({ onProductClick, onNavigate }: CatalogScreenProps
 
     loadCatalogs()
   }, [])
+
+  useEffect(() => {
+    const loadCarousels = async () => {
+      try {
+        setCarouselsLoading(true)
+        const allCarousels = await carouselService.getCarousels()
+        const activeCarousels = allCarousels.filter((c) => c.activo)
+
+        // Cargar flyers para cada carrusel activo
+        const carouselsWithFlyers = await Promise.all(
+          activeCarousels.map((c) => carouselService.getCarouselById(c.id))
+        )
+
+        setCarousels(carouselsWithFlyers.filter((c) => c.flyers && c.flyers.length > 0))
+      } catch {
+        // Si falla, simplemente no mostramos carruseles
+        setCarousels([])
+      } finally {
+        setCarouselsLoading(false)
+      }
+    }
+
+    loadCarousels()
+  }, [])
+
+  // Auto-advance del carrusel cada 5 segundos
+  useEffect(() => {
+    if (carousels.length === 0) return
+    const totalFlyers = carousels.reduce((acc, c) => Math.max(acc, c.flyers?.length || 0), 0)
+    if (totalFlyers <= 1) return
+
+    const interval = setInterval(() => {
+      setActiveCarouselIndex((prev) => (prev + 1) % totalFlyers)
+    }, 5000)
+
+    return () => clearInterval(interval)
+  }, [carousels])
 
   const toggleBrand = (brand: string) => {
     setSelectedBrands((prev) => (prev.includes(brand) ? prev.filter((b) => b !== brand) : [...prev, brand]))
@@ -302,31 +327,59 @@ export function CatalogScreen({ onProductClick, onNavigate }: CatalogScreenProps
           </div>
 
           <div className="flex-1 overflow-auto bg-muted/30">
-            {/* Banners / Flyers */}
-            <div className="p-3 space-y-3">
-              {FEATURED_BANNERS.map((banner) => (
-                <div
-                  key={banner.id}
-                  className="relative rounded-2xl overflow-hidden shadow-md bg-gradient-to-r from-primary to-primary/80 text-primary-foreground cursor-pointer hover:shadow-lg transition-all active:scale-[0.98]"
-                >
-                  <div className="flex items-center justify-between p-4">
-                    <div className="flex-1 z-10">
-                      <h2 className="text-lg font-bold text-accent mb-0.5">{banner.title}</h2>
-                      <p className="text-sm font-semibold mb-0.5">{banner.subtitle}</p>
-                      <p className="text-[11px] opacity-80">{banner.description}</p>
-                    </div>
-                    <div className="w-24 h-24 relative z-10">
+            {/* Banners / Flyers dinámicos */}
+            {carouselsLoading ? (
+              <div className="p-3">
+                <div className="h-40 rounded-2xl bg-muted animate-pulse" />
+              </div>
+            ) : carousels.length > 0 ? (
+              <div className="p-3 space-y-4">
+                {carousels.map((carousel) => (
+                  <div key={carousel.id}>
+                    {carousel.flyers && carousel.flyers.length > 1 ? (
+                      <div className="relative">
+                        <div className="overflow-hidden rounded-2xl">
+                          <div
+                            className="flex transition-transform duration-300 ease-in-out"
+                            style={{ transform: `translateX(-${activeCarouselIndex * 100}%)` }}
+                          >
+                            {carousel.flyers.map((flyer) => (
+                              <div key={flyer.id} className="w-full shrink-0">
+                                <img
+                                  src={flyer.url}
+                                  alt={flyer.titulo || carousel.nombre}
+                                  className="w-full h-40 object-cover rounded-2xl"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        {/* Dots */}
+                        <div className="flex justify-center gap-1.5 mt-2">
+                          {carousel.flyers.map((_, idx) => (
+                            <button
+                              key={idx}
+                              onClick={() => setActiveCarouselIndex(idx)}
+                              className={`w-2 h-2 rounded-full transition-colors ${
+                                idx === activeCarouselIndex % (carousel.flyers?.length || 1)
+                                  ? "bg-primary"
+                                  : "bg-muted-foreground/30"
+                              }`}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    ) : carousel.flyers && carousel.flyers.length === 1 ? (
                       <img
-                        src={banner.image || "/placeholder.svg"}
-                        alt={banner.title}
-                        className="w-full h-full object-contain drop-shadow-lg"
+                        src={carousel.flyers[0].url}
+                        alt={carousel.flyers[0].titulo || carousel.nombre}
+                        className="w-full h-40 object-cover rounded-2xl shadow-md"
                       />
-                    </div>
+                    ) : null}
                   </div>
-                  <div className="absolute bottom-0 left-0 right-0 h-1 bg-accent" />
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : null}
 
             {/* Promociones */}
             <div className="px-3 pt-2 pb-1">

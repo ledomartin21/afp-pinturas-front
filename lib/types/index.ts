@@ -32,6 +32,15 @@ export type Order = {
   total: number
   status: "pending" | "processing" | "shipped" | "delivered"
   items: CartItem[]
+  deliveryMethod?: "delivery" | "pickup"
+  paymentMethod?: "transfer" | "cash" | "card"
+  paymentStatus?: "pending" | "paid" | "rejected"
+  address?: {
+    calle: string
+    ciudad: string
+    codigoPostal: string
+    provincia?: string
+  } | null
 }
 
 export type Invoice = {
@@ -78,4 +87,53 @@ export type RegisterPayload = {
 export type LoginResponse = {
   usuarioId: string | number
   rolId: number
+}
+
+// Carruseles y Flyers
+export type Flyer = {
+  id: number
+  titulo: string | null
+  url: string
+  publicId: string
+  carruselId: number
+  createdAt: string
+}
+
+export type Carrusel = {
+  id: number
+  nombre: string
+  descripcion: string | null
+  activo: boolean
+  createdAt: string
+  flyers?: Flyer[]
+}
+
+export type CreateCarruselPayload = {
+  nombre: string
+  descripcion?: string
+  activo?: boolean
+}
+
+export type UpdateCarruselPayload = {
+  nombre?: string
+  descripcion?: string
+  activo?: boolean
+}
+
+// Perfil de usuario
+export type UserProfile = {
+  id: number | string
+  nombreUsuario: string
+  razonSocial: string
+  mail: string
+  telefono: string
+  domicilio: string
+  rolId: number
+}
+
+export type UpdateProfilePayload = {
+  razonSocial?: string
+  mail?: string
+  telefono?: string
+  domicilio?: string
 }

@@ -1,10 +1,10 @@
 export const API_CONFIG = {
-  BASE_URL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000",
+  BASE_URL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002",
   TIMEOUT: 30000,
   HEADERS: {
     "Content-Type": "application/json",
   },
-}
+};
 
 export const API_ENDPOINTS = {
   // Autenticación
@@ -42,4 +42,19 @@ export const API_ENDPOINTS = {
     PROFILE: "/user/profile",
     UPDATE: "/user/profile",
   },
-}
+  // Carruseles
+  CAROUSEL: {
+    LIST: "/carrusel",
+    DETAIL: (id: number) => `/carrusel/${id}`,
+    CREATE: "/carrusel",
+    UPDATE: (id: number) => `/carrusel/${id}`,
+    DELETE: (id: number) => `/carrusel/${id}`,
+  },
+  // Flyers
+  FLYER: {
+    LIST: "/flyer",
+    DETAIL: (id: number) => `/flyer/${id}`,
+    CREATE: "/flyer",
+    DELETE: (id: number) => `/flyer/${id}`,
+  },
+};
