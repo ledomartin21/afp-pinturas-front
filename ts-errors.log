@@ -1,0 +1,1 @@
+﻿lib/api/products.service.ts(65,7): error TS2561: Object literal may only specify known properties, but 'images' does not exist in type 'Product'. Did you mean to write 'image'?
