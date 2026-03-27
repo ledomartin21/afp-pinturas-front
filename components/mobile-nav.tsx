@@ -13,7 +13,7 @@ interface MobileNavProps {
 
 export function MobileNav({ currentScreen, onNavigate, cartCount, isAdmin }: MobileNavProps) {
   const navItems = [
-    { screen: "catalog" as Screen, icon: Home, label: "Inicio" },
+    { screen: "home" as Screen, icon: Home, label: "Inicio" },
     { screen: "cart" as Screen, icon: ShoppingCart, label: "Carrito", badge: cartCount },
     { screen: "orders" as Screen, icon: Package, label: "Pedidos" },
     { screen: "profile" as Screen, icon: User, label: "Perfil" },

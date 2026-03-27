@@ -5,16 +5,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { User, MapPin, Bell, LogOut, ShieldCheck, Package, Heart, Loader2 } from "lucide-react"
-import Image from "next/image"
+import { User, MapPin, LogOut, ShieldCheck, Loader2, Menu, ShoppingCart } from "lucide-react"
 import { userService } from "@/lib/api"
 import type { UserProfile } from "@/lib/types"
+import type { Screen } from "@/app/page"
 
 interface ProfileScreenProps {
   onLogout: () => void
+  onNavigate: (screen: Screen) => void
+  onOpenMenu: () => void
+  cartCount: number
 }
 
-export function ProfileScreen({ onLogout }: ProfileScreenProps) {
+export function ProfileScreen({ onLogout, onNavigate, onOpenMenu, cartCount }: ProfileScreenProps) {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
@@ -25,7 +28,10 @@ export function ProfileScreen({ onLogout }: ProfileScreenProps) {
   const [razonSocial, setRazonSocial] = useState("")
   const [mail, setMail] = useState("")
   const [telefono, setTelefono] = useState("")
-  const [domicilio, setDomicilio] = useState("")
+  const [address, setAddress] = useState("")
+  const [city, setCity] = useState("")
+  const [postalCode, setPostalCode] = useState("")
+  const [province, setProvince] = useState("")
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -36,7 +42,17 @@ export function ProfileScreen({ onLogout }: ProfileScreenProps) {
         setRazonSocial(data.razonSocial || "")
         setMail(data.mail || "")
         setTelefono(data.telefono || "")
-        setDomicilio(data.domicilio || "")
+        // El backend almacena la dirección en un solo campo "domicilio".
+        // Para igualar el formulario del checkout (4 campos separados),
+        // se parsea como: "calle, ciudad, cp, provincia" al cargar
+        // y se concatena con comas al guardar (ver handleSave).
+        if (data.domicilio) {
+          const parts = data.domicilio.split(",").map((p) => p.trim())
+          setAddress(parts[0] || "")
+          setCity(parts[1] || "")
+          setPostalCode(parts[2] || "")
+          setProvince(parts[3] || "")
+        }
       } catch {
         setErrorMessage("No se pudo cargar el perfil")
       } finally {
@@ -52,6 +68,7 @@ export function ProfileScreen({ onLogout }: ProfileScreenProps) {
       setIsSaving(true)
       setErrorMessage("")
       setSuccessMessage("")
+      const domicilio = [address, city, postalCode, province].filter(Boolean).join(", ")
       const updated = await userService.updateProfile({
         razonSocial,
         mail,
@@ -79,17 +96,24 @@ export function ProfileScreen({ onLogout }: ProfileScreenProps) {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col h-full">
-        <header className="bg-card border-b sticky top-0 z-10">
-          <div className="h-1 bg-accent" />
-          <div className="px-4 py-4 flex items-center gap-3">
-            <Image src="/images/logo-afp.png" alt="AFP Pinturas" width={36} height={36} className="rounded" />
-            <div>
-              <h1 className="text-lg font-bold">Mi Perfil</h1>
-              <p className="text-xs text-muted-foreground">Gestiona tu informacion personal</p>
-            </div>
+      <div className="flex flex-col h-full bg-background">
+        <div className="bg-primary px-4 pt-6 pb-8 rounded-b-xl shadow-lg">
+          <div className="flex items-center justify-between mb-5">
+            <button onClick={onOpenMenu} className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center border border-white/30">
+              <Menu className="w-5 h-5 text-white" />
+            </button>
+            <img src="/images/logo.png" alt="AFP Pinturas" className="h-12 w-auto object-contain drop-shadow-md" />
+            <button onClick={() => onNavigate("cart")} className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center border border-white/30 relative">
+              <ShoppingCart className="w-5 h-5 text-white" />
+              {cartCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-white text-primary text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center">
+                  {cartCount > 99 ? "99+" : cartCount}
+                </span>
+              )}
+            </button>
           </div>
-        </header>
+          <h1 className="text-xl font-bold text-white text-center">Mi Perfil</h1>
+        </div>
         <div className="flex-1 flex items-center justify-center">
           <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
         </div>
@@ -98,57 +122,42 @@ export function ProfileScreen({ onLogout }: ProfileScreenProps) {
   }
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Header */}
-      <header className="bg-card border-b sticky top-0 z-10">
-        <div className="h-1 bg-accent" />
-        <div className="px-4 py-4 flex items-center gap-3">
-          <Image src="/images/logo-afp.png" alt="AFP Pinturas" width={36} height={36} className="rounded" />
-          <div>
-            <h1 className="text-lg font-bold">Mi Perfil</h1>
-            <p className="text-xs text-muted-foreground">Gestiona tu informacion personal</p>
-          </div>
+    <div className="flex flex-col h-full bg-background">
+      {/* Header dorado */}
+      <div className="bg-primary px-4 pt-6 pb-8 rounded-b-xl shadow-lg">
+        <div className="flex items-center justify-between mb-5">
+          <button onClick={onOpenMenu} className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center border border-white/30">
+            <Menu className="w-5 h-5 text-white" />
+          </button>
+          <img src="/images/logo.png" alt="AFP Pinturas" className="h-12 w-auto object-contain drop-shadow-md" />
+          <button onClick={() => onNavigate("cart")} className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center border border-white/30 relative">
+            <ShoppingCart className="w-5 h-5 text-white" />
+            {cartCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-white text-primary text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center">
+                {cartCount > 99 ? "99+" : cartCount}
+              </span>
+            )}
+          </button>
         </div>
-      </header>
 
-      <div className="flex-1 overflow-auto">
-        {/* Profile banner */}
-        <div className="bg-gradient-to-br from-primary to-primary/80 p-5 text-primary-foreground">
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center text-2xl font-bold border-2 border-white/40">
-              {profile ? getInitials(profile.razonSocial || profile.nombreUsuario) : "?"}
+        {/* Avatar y nombre en el header */}
+        <div className="flex flex-col items-center gap-2">
+          <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center text-2xl font-bold text-white border-2 border-white/40">
+            {profile ? getInitials(profile.razonSocial || profile.nombreUsuario) : "?"}
+          </div>
+          <div className="text-center">
+            <h2 className="text-lg font-bold text-white">{profile?.razonSocial || profile?.nombreUsuario || "Usuario"}</h2>
+            <p className="text-sm text-white/80">{profile?.mail || ""}</p>
+            <div className="flex items-center justify-center gap-1 mt-1">
+              <ShieldCheck className="w-3.5 h-3.5 text-white/90" />
+              <span className="text-xs text-white/90 font-medium">Cliente verificado</span>
             </div>
-            <div>
-              <h2 className="text-lg font-bold">{profile?.razonSocial || profile?.nombreUsuario || "Usuario"}</h2>
-              <p className="text-sm text-white/80">{profile?.mail || ""}</p>
-              <div className="flex items-center gap-1 mt-1">
-                <ShieldCheck className="w-3.5 h-3.5 text-accent" />
-                <span className="text-xs text-accent font-medium">Cliente verificado</span>
-              </div>
-            </div>
           </div>
         </div>
+      </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-3 gap-2 p-4 -mt-3">
-          <div className="bg-card rounded-xl p-3 text-center shadow-sm border">
-            <Package className="w-5 h-5 mx-auto text-blue-500 mb-1" />
-            <p className="text-lg font-bold">-</p>
-            <p className="text-[10px] text-muted-foreground">Pedidos</p>
-          </div>
-          <div className="bg-card rounded-xl p-3 text-center shadow-sm border">
-            <Heart className="w-5 h-5 mx-auto text-red-500 mb-1" />
-            <p className="text-lg font-bold">-</p>
-            <p className="text-[10px] text-muted-foreground">Favoritos</p>
-          </div>
-          <div className="bg-card rounded-xl p-3 text-center shadow-sm border">
-            <ShieldCheck className="w-5 h-5 mx-auto text-green-500 mb-1" />
-            <p className="text-lg font-bold">-</p>
-            <p className="text-[10px] text-muted-foreground">Antiguedad</p>
-          </div>
-        </div>
-
-        <div className="p-4 pt-0 space-y-4">
+      <div className="flex-1 overflow-auto px-4 pb-6">
+        <div className="mt-4 space-y-4">
           {errorMessage && (
             <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
               {errorMessage}
@@ -161,10 +170,10 @@ export function ProfileScreen({ onLogout }: ProfileScreenProps) {
           )}
 
           {/* Datos Personales */}
-          <Card className="border overflow-hidden">
-            <CardHeader className="bg-blue-50 border-b border-blue-100 py-3 px-4">
+          <Card className="border-0 shadow-sm overflow-hidden">
+            <CardHeader className="bg-primary/10 border-b border-primary/15 py-3 px-4">
               <CardTitle className="flex items-center gap-2 text-sm">
-                <div className="w-7 h-7 rounded-lg bg-blue-500 flex items-center justify-center">
+                <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
                   <User className="w-4 h-4 text-white" />
                 </div>
                 Datos Personales
@@ -176,7 +185,7 @@ export function ProfileScreen({ onLogout }: ProfileScreenProps) {
                 <Input id="username" value={profile?.nombreUsuario || ""} disabled className="h-11 bg-muted/50" />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="name" className="text-xs">Razon Social / Nombre</Label>
+                <Label htmlFor="name" className="text-xs">Razón Social / Nombre</Label>
                 <Input id="name" value={razonSocial} onChange={(e) => setRazonSocial(e.target.value)} className="h-11" />
               </div>
               <div className="space-y-1.5">
@@ -184,11 +193,11 @@ export function ProfileScreen({ onLogout }: ProfileScreenProps) {
                 <Input id="email" type="email" value={mail} onChange={(e) => setMail(e.target.value)} className="h-11" />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="phone" className="text-xs">Telefono</Label>
+                <Label htmlFor="phone" className="text-xs">Teléfono</Label>
                 <Input id="phone" type="tel" value={telefono} onChange={(e) => setTelefono(e.target.value)} className="h-11" />
               </div>
               <Button
-                className="w-full h-11 bg-blue-500 text-white hover:bg-blue-600 font-semibold text-sm"
+                className="w-full h-11 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold text-sm"
                 onClick={handleSave}
                 disabled={isSaving}
               >
@@ -205,23 +214,37 @@ export function ProfileScreen({ onLogout }: ProfileScreenProps) {
           </Card>
 
           {/* Direccion */}
-          <Card className="border overflow-hidden">
-            <CardHeader className="bg-green-50 border-b border-green-100 py-3 px-4">
+          <Card className="border-0 shadow-sm overflow-hidden">
+            <CardHeader className="bg-primary/10 border-b border-primary/15 py-3 px-4">
               <CardTitle className="flex items-center gap-2 text-sm">
-                <div className="w-7 h-7 rounded-lg bg-green-500 flex items-center justify-center">
+                <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
                   <MapPin className="w-4 h-4 text-white" />
                 </div>
-                Direccion de Entrega
+                Dirección de Entrega
               </CardTitle>
             </CardHeader>
             <CardContent className="p-4 space-y-3">
               <div className="space-y-1.5">
-                <Label htmlFor="address" className="text-xs">Direccion</Label>
-                <Input id="address" value={domicilio} onChange={(e) => setDomicilio(e.target.value)} className="h-11" />
+                <Label htmlFor="profile-address" className="text-xs">Dirección</Label>
+                <Input id="profile-address" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Ingresa tu dirección" className="h-11" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="profile-city" className="text-xs">Ciudad</Label>
+                  <Input id="profile-city" value={city} onChange={(e) => setCity(e.target.value)} placeholder="Ciudad" className="h-11" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="profile-postal" className="text-xs">C.P.</Label>
+                  <Input id="profile-postal" value={postalCode} onChange={(e) => setPostalCode(e.target.value)} placeholder="Código Postal" className="h-11" />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="profile-province" className="text-xs">Provincia</Label>
+                <Input id="profile-province" value={province} onChange={(e) => setProvince(e.target.value)} placeholder="Provincia" className="h-11" />
               </div>
               <Button
                 variant="outline"
-                className="w-full h-11 border-green-300 text-green-700 hover:bg-green-50 font-semibold text-sm"
+                className="w-full h-11 border-primary/30 text-primary hover:bg-primary/10 font-semibold text-sm"
                 onClick={handleSave}
                 disabled={isSaving}
               >
@@ -231,43 +254,9 @@ export function ProfileScreen({ onLogout }: ProfileScreenProps) {
                     Actualizando...
                   </span>
                 ) : (
-                  "Actualizar Direccion"
+                  "Actualizar Dirección"
                 )}
               </Button>
-            </CardContent>
-          </Card>
-
-          {/* Preferencias */}
-          <Card className="border overflow-hidden">
-            <CardHeader className="bg-amber-50 border-b border-amber-100 py-3 px-4">
-              <CardTitle className="flex items-center gap-2 text-sm">
-                <div className="w-7 h-7 rounded-lg bg-amber-500 flex items-center justify-center">
-                  <Bell className="w-4 h-4 text-white" />
-                </div>
-                Preferencias
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium text-sm">Notificaciones de Ofertas</p>
-                  <p className="text-xs text-muted-foreground">Recibi novedades sobre promociones</p>
-                </div>
-                <div className="relative">
-                  <input type="checkbox" defaultChecked className="peer sr-only" id="notif-offers" />
-                  <label htmlFor="notif-offers" className="block w-11 h-6 bg-muted rounded-full cursor-pointer peer-checked:bg-accent transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-5 after:h-5 after:bg-white after:rounded-full after:shadow-sm after:transition-transform peer-checked:after:translate-x-5" />
-                </div>
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium text-sm">Actualizaciones de Pedidos</p>
-                  <p className="text-xs text-muted-foreground">Segui el estado de tus compras</p>
-                </div>
-                <div className="relative">
-                  <input type="checkbox" defaultChecked className="peer sr-only" id="notif-orders" />
-                  <label htmlFor="notif-orders" className="block w-11 h-6 bg-muted rounded-full cursor-pointer peer-checked:bg-accent transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-5 after:h-5 after:bg-white after:rounded-full after:shadow-sm after:transition-transform peer-checked:after:translate-x-5" />
-                </div>
-              </div>
             </CardContent>
           </Card>
 
@@ -278,7 +267,7 @@ export function ProfileScreen({ onLogout }: ProfileScreenProps) {
             onClick={onLogout}
           >
             <LogOut className="w-5 h-5 mr-2" />
-            Cerrar Sesion
+            Cerrar Sesión
           </Button>
 
           <div className="pb-4" />
