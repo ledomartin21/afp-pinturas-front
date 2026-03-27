@@ -5,6 +5,7 @@ import { Sheet, SheetContent } from "@/components/ui/sheet"
 import { Home, Grid2X2, ClipboardList, User, LogOut, ChevronDown, ChevronRight } from "lucide-react"
 import type { Screen } from "@/app/page"
 import { productsService } from "@/lib/api"
+import { getCategoryIcon } from "@/lib/config/category-icons"
 
 interface SidebarMenuProps {
   open: boolean
@@ -93,8 +94,9 @@ export function SidebarMenu({ open, onOpenChange, onNavigate, onCategoryNavigate
                       onOpenChange(false)
                       onCategoryNavigate?.(cat)
                     }}
-                    className="text-sm py-2 font-medium text-foreground/70 hover:text-foreground text-left transition-colors"
+                    className="flex items-center gap-2.5 text-sm py-2 font-medium text-foreground/70 hover:text-foreground text-left transition-colors"
                   >
+                    {(() => { const Icon = getCategoryIcon(cat); return <Icon className="w-4 h-4" /> })()}
                     {cat}
                   </button>
                 ))}

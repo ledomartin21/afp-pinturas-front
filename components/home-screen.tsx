@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { Search, ShoppingBag, ClipboardList, Grid2X2, Menu, ShoppingCart, ChevronRight, ChevronDown, Loader2 } from "lucide-react"
+import { Search, ShoppingBag, ClipboardList, Menu, ShoppingCart, ChevronRight, ChevronDown, Loader2 } from "lucide-react"
+import { getCategoryIcon } from "@/lib/config/category-icons"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from "@/components/ui/carousel"
@@ -176,20 +177,23 @@ export function HomeScreen({ onNavigate, onOpenMenu, cartCount }: HomeScreenProp
           </div>
 
           <div className="grid gap-3 grid-cols-3">
-            {visibleCategories.map((cat) => (
-              <Card
-                key={cat}
-                className="cursor-pointer hover:shadow-md transition-all active:scale-[0.97] border-0 shadow-sm"
-                onClick={() => onNavigate("catalog")}
-              >
-                <CardContent className="flex flex-col items-center justify-center py-4 gap-2">
-                  <div className="w-10 h-10 rounded-xl bg-primary/15 flex items-center justify-center">
-                    <Grid2X2 className="w-5 h-5 text-primary" />
-                  </div>
-                  <span className="text-xs font-medium text-foreground text-center line-clamp-2">{cat}</span>
-                </CardContent>
-              </Card>
-            ))}
+            {visibleCategories.map((cat) => {
+              const CategoryIcon = getCategoryIcon(cat)
+              return (
+                <Card
+                  key={cat}
+                  className="cursor-pointer hover:shadow-md transition-all active:scale-[0.97] border-0 shadow-sm"
+                  onClick={() => onNavigate("catalog")}
+                >
+                  <CardContent className="flex flex-col items-center justify-center py-4 gap-2">
+                    <div className="w-10 h-10 rounded-xl bg-primary/15 flex items-center justify-center">
+                      <CategoryIcon className="w-5 h-5 text-primary" />
+                    </div>
+                    <span className="text-xs font-medium text-foreground text-center line-clamp-2">{cat}</span>
+                  </CardContent>
+                </Card>
+              )
+            })}
           </div>
           {categories.length > VISIBLE_CATEGORIES && (
             <button
