@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { ArrowLeft, MapPin, Truck, Store, Banknote, CreditCard } from "lucide-react"
+import { ArrowLeft, MapPin, Truck, Store, Banknote } from "lucide-react"
 import type { CartItem } from "@/app/page"
 import type { CreatePedidoPayload } from "@/lib/api/orders.service"
 
@@ -19,7 +19,7 @@ interface CheckoutScreenProps {
 
 export function CheckoutScreen({ items, onConfirm, onTransferPayment, onBack }: CheckoutScreenProps) {
   const [deliveryMethod, setDeliveryMethod] = useState<"delivery" | "pickup">("delivery")
-  const [paymentMethod, setPaymentMethod] = useState<"transfer" | "cash" | "card">("transfer")
+  const [paymentMethod, setPaymentMethod] = useState<"transfer" | "cash">("transfer")
   const [address, setAddress] = useState("Av. Corrientes 1234, CABA")
   const [city, setCity] = useState("CABA")
   const [postalCode, setPostalCode] = useState("1000")
@@ -188,7 +188,7 @@ export function CheckoutScreen({ items, onConfirm, onTransferPayment, onBack }: 
             <h2 className="font-semibold text-lg">Metodo de Pago</h2>
             <RadioGroup
               value={paymentMethod}
-              onValueChange={(value) => setPaymentMethod(value as "transfer" | "cash" | "card")}
+              onValueChange={(value) => setPaymentMethod(value as "transfer" | "cash")}
             >
               <label
                 htmlFor="transfer"
@@ -222,21 +222,6 @@ export function CheckoutScreen({ items, onConfirm, onTransferPayment, onBack }: 
                 </div>
               </label>
 
-              <label
-                htmlFor="card"
-                className={`flex items-start gap-4 p-4 rounded-xl border-2 cursor-pointer transition-colors ${
-                  paymentMethod === "card" ? "border-accent bg-accent/5" : "border-border hover:bg-muted/50"
-                }`}
-              >
-                <RadioGroupItem value="card" id="card" className="mt-1" />
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <CreditCard className="w-5 h-5 text-accent-foreground" />
-                    <span className="font-semibold">Tarjeta de Credito/Debito</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground">{"Paga con tu tarjeta en el local"}</p>
-                </div>
-              </label>
             </RadioGroup>
           </CardContent>
         </Card>

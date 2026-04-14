@@ -1,55 +1,74 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Card, CardContent } from "@/components/ui/card"
+import { useState, useEffect, useRef } from "react"
 import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
+import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Slider } from "@/components/ui/slider"
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import {
   Search,
-  ScanLine,
-  Tag,
   SlidersHorizontal,
   Loader2,
-  MessageCircle,
-  Flame,
-  AlertTriangle,
+  Menu,
+  ShoppingCart,
   ChevronLeft,
   ChevronRight,
+  Minus,
+  Plus,
+  AlertTriangle,
+  CalendarClock,
 } from "lucide-react"
-import type { Product, Screen } from "@/app/page"
-import { productsService, carouselService } from "@/lib/api"
+import type { Product, Screen, CartItem } from "@/app/page"
+import { productsService } from "@/lib/api"
 import { APP_CONSTANTS } from "@/lib/config/constants"
-import type { Carrusel } from "@/lib/types"
 
 interface CatalogScreenProps {
   onProductClick: (product: Product) => void
   onNavigate: (screen: Screen) => void
+  onOpenMenu: () => void
+  cart: CartItem[]
+  onAddToCart: (product: Product, quantity?: number) => void
+  onUpdateQuantity: (productId: string, quantity: number) => void
+  initialCategory?: string
+  onCategoryApplied?: () => void
 }
 
 const ITEMS_PER_PAGE = APP_CONSTANTS.ITEMS_PER_PAGE
-const PAGE_WINDOW_SIZE = APP_CONSTANTS.PAGE_WINDOW_SIZE
-const WSP_NUMBER = APP_CONSTANTS.WHATSAPP_NUMBER
 
-export function CatalogScreen({ onProductClick, onNavigate }: CatalogScreenProps) {
+export function CatalogScreen({ onProductClick, onNavigate, onOpenMenu, cart, onAddToCart, onUpdateQuantity, initialCategory, onCategoryApplied }: CatalogScreenProps) {
   const [isLoading, setIsLoading] = useState(true)
   const [products, setProducts] = useState<Product[]>([])
   const [totalProducts, setTotalProducts] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
   const [errorMessage, setErrorMessage] = useState("")
   const [search, setSearch] = useState("")
+  const [searchInput, setSearchInput] = useState("")
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [selectedCategory, setSelectedCategory] = useState("Todas")
   const [selectedBrands, setSelectedBrands] = useState<string[]>([])
   const [priceRange, setPriceRange] = useState([0, 50000])
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
-  const [carousels, setCarousels] = useState<Carrusel[]>([])
-  const [carouselsLoading, setCarouselsLoading] = useState(true)
-  const [activeCarouselIndex, setActiveCarouselIndex] = useState(0)
+
+  useEffect(() => {
+    if (initialCategory) {
+      setSelectedCategory(initialCategory)
+      onCategoryApplied?.()
+    }
+  }, [initialCategory, onCategoryApplied])
 
   useEffect(() => {
     const loadProducts = async () => {
@@ -78,8 +97,6 @@ export function CatalogScreen({ onProductClick, onNavigate }: CatalogScreenProps
   }, [currentPage, search, selectedCategory, selectedBrands, priceRange])
 
   const maxPrice = 50000
-
-  const promoProducts = products.filter((p) => p.isPromo)
   const [categories, setCategories] = useState<string[]>(["Todas"])
   const [brands, setBrands] = useState<string[]>([])
 
@@ -91,46 +108,8 @@ export function CatalogScreen({ onProductClick, onNavigate }: CatalogScreenProps
       setCategories(categoryList)
       setBrands(brandList)
     }
-
     loadCatalogs()
   }, [])
-
-  useEffect(() => {
-    const loadCarousels = async () => {
-      try {
-        setCarouselsLoading(true)
-        const allCarousels = await carouselService.getCarousels()
-        const activeCarousels = allCarousels.filter((c) => c.activo)
-
-        // Cargar flyers para cada carrusel activo
-        const carouselsWithFlyers = await Promise.all(
-          activeCarousels.map((c) => carouselService.getCarouselById(c.id))
-        )
-
-        setCarousels(carouselsWithFlyers.filter((c) => c.flyers && c.flyers.length > 0))
-      } catch {
-        // Si falla, simplemente no mostramos carruseles
-        setCarousels([])
-      } finally {
-        setCarouselsLoading(false)
-      }
-    }
-
-    loadCarousels()
-  }, [])
-
-  // Auto-advance del carrusel cada 2.5 segundos
-  useEffect(() => {
-    if (carousels.length === 0) return
-    const totalFlyers = carousels.reduce((acc, c) => Math.max(acc, c.flyers?.length || 0), 0)
-    if (totalFlyers <= 1) return
-
-    const interval = setInterval(() => {
-      setActiveCarouselIndex((prev) => (prev + 1) % totalFlyers)
-    }, 2500)
-
-    return () => clearInterval(interval)
-  }, [carousels])
 
   const toggleBrand = (brand: string) => {
     setSelectedBrands((prev) => (prev.includes(brand) ? prev.filter((b) => b !== brand) : [...prev, brand]))
@@ -142,14 +121,6 @@ export function CatalogScreen({ onProductClick, onNavigate }: CatalogScreenProps
     setSelectedCategory("Todas")
   }
 
-  const pageStart = (currentPage - 1) * ITEMS_PER_PAGE
-  const pageWindowStart = Math.floor((currentPage - 1) / PAGE_WINDOW_SIZE) * PAGE_WINDOW_SIZE + 1
-  const pageWindowEnd = Math.min(pageWindowStart + PAGE_WINDOW_SIZE - 1, totalPages)
-  const visiblePages = Array.from(
-    { length: pageWindowEnd - pageWindowStart + 1 },
-    (_, idx) => pageWindowStart + idx,
-  )
-
   useEffect(() => {
     setCurrentPage(1)
   }, [search, selectedCategory, selectedBrands, priceRange])
@@ -160,380 +131,392 @@ export function CatalogScreen({ onProductClick, onNavigate }: CatalogScreenProps
     }
   }, [currentPage, totalPages])
 
+  // Scroll to top on page change
+  useEffect(() => {
+    mainRef.current?.scrollTo({ top: 0, behavior: "smooth" })
+  }, [currentPage])
+
   const activeFiltersCount =
     (selectedBrands.length > 0 ? 1 : 0) +
     (priceRange[0] > 0 || priceRange[1] < maxPrice ? 1 : 0) +
     (selectedCategory !== "Todas" ? 1 : 0)
 
-  const openWhatsApp = () => {
-    window.open(`https://wa.me/${WSP_NUMBER}?text=Hola! Quiero consultar sobre productos de AFP Pinturas`, "_blank")
+  const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0)
+
+  const getCartQuantity = (productId: string) => {
+    const item = cart.find((i) => i.id === productId)
+    return item ? item.quantity : 0
+  }
+
+  const [showReserveDialog, setShowReserveDialog] = useState(false)
+  const [reserveProduct, setReserveProduct] = useState<Product | null>(null)
+  const [reserveAction, setReserveAction] = useState<"add" | "increment">("add")
+
+  const handlePlusClick = (product: Product, qty: number) => {
+    const isOutOfStock = product.stock === 0
+    const exceedsStock = qty >= product.stock && product.stock > 0
+
+    if (isOutOfStock || exceedsStock) {
+      setReserveProduct(product)
+      setReserveAction(qty === 0 ? "add" : "increment")
+      setShowReserveDialog(true)
+      return
+    }
+
+    if (qty === 0) {
+      onAddToCart(product, 1)
+    } else {
+      onUpdateQuantity(product.id, qty + 1)
+    }
+  }
+
+  const handleReserveConfirm = () => {
+    if (!reserveProduct) return
+    const qty = getCartQuantity(reserveProduct.id)
+    if (reserveAction === "add") {
+      onAddToCart(reserveProduct, 1)
+    } else {
+      onUpdateQuantity(reserveProduct.id, qty + 1)
+    }
+    setShowReserveDialog(false)
+    setReserveProduct(null)
+  }
+
+  const mainRef = useRef<HTMLElement>(null)
+
+  const handleSearchInput = (value: string) => {
+    setSearchInput(value)
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
+    searchTimerRef.current = setTimeout(() => setSearch(value), 400)
+  }
+
+  useEffect(() => {
+    return () => {
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
+    }
+  }, [])
+
+  // Pagination - Stitch style with ellipsis
+  const getPaginationItems = () => {
+    const items: (number | "...")[] = []
+    if (totalPages <= 5) {
+      for (let i = 1; i <= totalPages; i++) items.push(i)
+    } else {
+      items.push(1, 2, 3)
+      if (currentPage > 3 && currentPage < totalPages - 1) {
+        items.push("...", currentPage)
+      }
+      if (totalPages > 4) items.push("...")
+      items.push(totalPages)
+    }
+    // deduplicate
+    const unique: (number | "...")[] = []
+    for (const item of items) {
+      if (unique[unique.length - 1] !== item) unique.push(item)
+    }
+    return unique
   }
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header con logo */}
-      <div className="bg-card px-4 py-3 border-b">
-        <div className="flex items-center justify-between">
-          <img
-            src="/images/logo-afp.png"
-            alt="AFP Pinturas"
-            className="h-10 w-auto"
-          />
-          <div className="flex items-center gap-2">
+      {/* Header dorado estilo Stitch */}
+      <header className="bg-primary pt-6 pb-8 px-6 shadow-lg rounded-b-xl relative z-10">
+        <div className="grid grid-cols-3 items-center w-full mb-6">
+          <div className="flex justify-start">
             <button
-              onClick={openWhatsApp}
-              className="bg-[#25D366] w-9 h-9 rounded-full flex items-center justify-center shadow-md hover:scale-110 transition-transform active:scale-95"
-              aria-label="Contactar por WhatsApp"
+              onClick={onOpenMenu}
+              className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center border border-white/30"
+              aria-label="Abrir menú"
             >
-              <MessageCircle className="w-4 h-4 text-white" />
+              <Menu className="w-5 h-5 text-white" />
+            </button>
+          </div>
+          <div className="flex justify-center">
+            <img
+              src="/images/logo.png"
+              alt="AFP Pinturas"
+              className="h-11 w-auto object-contain drop-shadow-md"
+            />
+          </div>
+          <div className="flex justify-end">
+            <button
+              onClick={() => onNavigate("cart")}
+              className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center border border-white/30 relative"
+              aria-label="Carrito"
+            >
+              <ShoppingCart className="w-5 h-5 text-white" />
+              {cartCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-white text-primary text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center">
+                  {cartCount > 99 ? "99+" : cartCount}
+                </span>
+              )}
             </button>
           </div>
         </div>
-      </div>
-      {/* Barra accent */}
-      <div className="h-1 bg-accent" />
-
-      {isLoading ? (
-        <div className="flex items-center justify-center h-[calc(100vh-180px)]">
-          <div className="text-center space-y-3">
-            <Loader2 className="w-12 h-12 animate-spin text-accent mx-auto" />
-            <p className="text-sm text-muted-foreground">Cargando catalogo...</p>
+        {/* Barra de búsqueda */}
+        <div className="relative shadow-xl flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-6 h-6 text-primary" />
+            <Input
+              placeholder="¿Qué estás buscando hoy?"
+              value={searchInput}
+              onChange={(e) => handleSearchInput(e.target.value)}
+              className="w-full h-14 pl-14 pr-6 rounded-2xl border-none bg-white text-foreground font-medium shadow-inner placeholder:text-muted-foreground"
+            />
           </div>
-        </div>
-      ) : (
-        <>
-          {errorMessage && (
-            <div className="px-3 pt-3">
-              <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</div>
-            </div>
-          )}
-          {/* Barra de busqueda */}
-          <div className="p-3 space-y-3 bg-card">
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar productos..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="pl-10 h-11 border-2 focus-visible:border-accent"
-                />
-              </div>
-              <Button size="icon" className="h-11 w-11 bg-accent text-accent-foreground hover:bg-accent/90 shrink-0">
-                <ScanLine className="w-5 h-5" />
+          <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
+            <SheetTrigger asChild>
+              <Button
+                size="icon"
+                className="h-14 w-14 shrink-0 relative bg-white/20 border border-white/30 hover:bg-white/30 rounded-2xl"
+              >
+                <SlidersHorizontal className="w-5 h-5 text-white" />
+                {activeFiltersCount > 0 && (
+                  <Badge className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center text-xs bg-white text-primary font-bold">
+                    {activeFiltersCount}
+                  </Badge>
+                )}
               </Button>
-              <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
-                <SheetTrigger asChild>
-                  <Button
-                    size="icon"
-                    variant="outline"
-                    className="h-11 w-11 shrink-0 relative bg-transparent border-2"
-                  >
-                    <SlidersHorizontal className="w-5 h-5" />
-                    {activeFiltersCount > 0 && (
-                      <Badge className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center text-xs bg-accent text-accent-foreground font-bold">
-                        {activeFiltersCount}
-                      </Badge>
-                    )}
-                  </Button>
-                </SheetTrigger>
-                <SheetContent side="bottom" className="h-[85vh] rounded-t-3xl">
-                  <SheetHeader className="pb-4 border-b">
-                    <SheetTitle className="text-xl">Filtros</SheetTitle>
-                  </SheetHeader>
-                  <div className="mt-6 space-y-6 overflow-auto h-[calc(85vh-140px)] pb-4">
-                    <div>
-                      <Label className="text-base font-semibold mb-3 block">Categoria</Label>
-                      <div className="flex flex-wrap gap-2">
-                        {categories.map((category) => (
-                          <Button
-                            key={category}
-                            variant={selectedCategory === category ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => setSelectedCategory(category)}
-                            className={
-                              selectedCategory === category
-                                ? "bg-primary text-primary-foreground"
-                                : "bg-transparent"
-                            }
-                          >
-                            {category}
-                          </Button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div>
-                      <Label className="text-base font-semibold mb-3 block">Marca</Label>
-                      <div className="space-y-3 bg-muted/30 p-3 rounded-xl">
-                        {brands.map((brand) => (
-                          <div key={brand} className="flex items-center space-x-3">
-                            <Checkbox
-                              id={brand}
-                              checked={selectedBrands.includes(brand)}
-                              onCheckedChange={() => toggleBrand(brand)}
-                            />
-                            <label htmlFor={brand} className="text-sm font-medium leading-none cursor-pointer flex-1">
-                              {brand}
-                            </label>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div>
-                      <Label className="text-base font-semibold mb-3 block">Rango de Precio</Label>
-                      <div className="bg-muted/30 p-4 rounded-xl space-y-4">
-                        <div className="flex justify-between text-sm font-semibold">
-                          <span>${priceRange[0].toLocaleString("es-AR")}</span>
-                          <span>${priceRange[1].toLocaleString("es-AR")}</span>
-                        </div>
-                        <Slider min={0} max={maxPrice} step={1000} value={priceRange} onValueChange={setPriceRange} />
-                      </div>
-                    </div>
+            </SheetTrigger>
+            <SheetContent side="bottom" className="h-[85vh] rounded-t-3xl">
+              <SheetHeader className="pb-4 border-b">
+                <SheetTitle className="text-xl">Filtros</SheetTitle>
+              </SheetHeader>
+              <div className="mt-6 space-y-6 overflow-auto h-[calc(85vh-140px)] pb-4">
+                <div>
+                  <Label className="text-base font-semibold mb-3 block">Categoria</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {categories.map((category) => (
+                      <Button
+                        key={category}
+                        variant={selectedCategory === category ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setSelectedCategory(category)}
+                        className={
+                          selectedCategory === category
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-transparent"
+                        }
+                      >
+                        {category}
+                      </Button>
+                    ))}
                   </div>
-                  <div className="absolute bottom-0 left-0 right-0 p-4 bg-card border-t flex gap-2">
-                    <Button variant="outline" className="flex-1 bg-transparent" onClick={clearFilters}>
-                      Limpiar
-                    </Button>
-                    <Button
-                      className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90"
-                      onClick={() => setFiltersOpen(false)}
-                    >
-                      Aplicar
-                    </Button>
+                </div>
+                <div>
+                  <Label className="text-base font-semibold mb-3 block">Marca</Label>
+                  <div className="space-y-3 bg-muted/30 p-3 rounded-xl">
+                    {brands.map((brand) => (
+                      <div key={brand} className="flex items-center space-x-3">
+                        <Checkbox
+                          id={brand}
+                          checked={selectedBrands.includes(brand)}
+                          onCheckedChange={() => toggleBrand(brand)}
+                        />
+                        <label htmlFor={brand} className="text-sm font-medium leading-none cursor-pointer flex-1">
+                          {brand}
+                        </label>
+                      </div>
+                    ))}
                   </div>
-                </SheetContent>
-              </Sheet>
-            </div>
-
-            <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
-              {categories.map((category) => (
-                <Button
-                  key={category}
-                  variant={selectedCategory === category ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setSelectedCategory(category)}
-                  className={`whitespace-nowrap text-xs ${
-                    selectedCategory === category
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-transparent"
-                  }`}
-                >
-                  {category}
+                </div>
+                <div>
+                  <Label className="text-base font-semibold mb-3 block">Rango de Precio</Label>
+                  <div className="bg-muted/30 p-4 rounded-xl space-y-4">
+                    <div className="flex justify-between text-sm font-semibold">
+                      <span>${priceRange[0].toLocaleString("es-AR")}</span>
+                      <span>${priceRange[1].toLocaleString("es-AR")}</span>
+                    </div>
+                    <Slider min={0} max={maxPrice} step={1000} value={priceRange} onValueChange={setPriceRange} />
+                  </div>
+                </div>
+              </div>
+              <div className="absolute bottom-0 left-0 right-0 p-4 bg-card border-t flex gap-2">
+                <Button variant="outline" className="flex-1 bg-transparent" onClick={clearFilters}>
+                  Limpiar
                 </Button>
-              ))}
+                <Button
+                  className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90"
+                  onClick={() => setFiltersOpen(false)}
+                >
+                  Aplicar
+                </Button>
+              </div>
+            </SheetContent>
+          </Sheet>
+        </div>
+      </header>
+
+      {/* Main content */}
+      <main ref={mainRef} className="flex-1 overflow-auto px-4 pb-24">
+        {isLoading ? (
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center space-y-3">
+              <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto" />
+              <p className="text-sm text-muted-foreground">Cargando catálogo...</p>
             </div>
           </div>
+        ) : (
+          <>
+            {errorMessage && (
+              <div className="pt-3">
+                <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</div>
+              </div>
+            )}
 
-          <div className="flex-1 overflow-auto bg-muted/30">
-            {/* Banners / Flyers dinámicos */}
-            {carouselsLoading ? (
-              <div className="p-3">
-                <div className="h-40 rounded-2xl bg-muted animate-pulse" />
+            {/* Info de resultados + Paginación */}
+            {totalProducts > 0 && (
+              <p className="text-xs text-muted-foreground text-center pt-4">
+                {totalProducts} producto{totalProducts !== 1 ? "s" : ""} encontrado{totalProducts !== 1 ? "s" : ""}
+              </p>
+            )}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center py-4 gap-1">
+                <button
+                  className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted disabled:opacity-30"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+                {getPaginationItems().map((item, idx) =>
+                  item === "..." ? (
+                    <span key={`dots-${idx}`} className="px-1 text-muted-foreground">...</span>
+                  ) : (
+                    <button
+                      key={`page-${item}`}
+                      className={`flex h-10 w-10 items-center justify-center rounded-lg font-bold text-sm transition-colors ${
+                        currentPage === item
+                          ? "bg-primary text-white"
+                          : "text-foreground hover:bg-muted"
+                      }`}
+                      onClick={() => setCurrentPage(item)}
+                    >
+                      {item}
+                    </button>
+                  )
+                )}
+                <button
+                  className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted disabled:opacity-30"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </button>
               </div>
-            ) : carousels.length > 0 ? (
-              <div className="p-3 space-y-4">
-                {carousels.map((carousel) => (
-                  <div key={carousel.id}>
-                    {carousel.flyers && carousel.flyers.length > 1 ? (
-                      <div className="relative">
-                        <div className="overflow-hidden rounded-2xl">
-                          <div
-                            className="flex transition-transform duration-300 ease-in-out"
-                            style={{ transform: `translateX(-${activeCarouselIndex * 100}%)` }}
-                          >
-                            {carousel.flyers.map((flyer) => (
-                              <div key={flyer.id} className="w-full shrink-0">
-                                <img
-                                  src={flyer.url}
-                                  alt={flyer.titulo || carousel.nombre}
-                                  className="w-full h-40 object-cover rounded-2xl"
-                                />
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                        {/* Dots */}
-                        <div className="flex justify-center gap-1.5 mt-2">
-                          {carousel.flyers.map((_, idx) => (
-                            <button
-                              key={idx}
-                              onClick={() => setActiveCarouselIndex(idx)}
-                              className={`w-2 h-2 rounded-full transition-colors ${
-                                idx === activeCarouselIndex % (carousel.flyers?.length || 1)
-                                  ? "bg-primary"
-                                  : "bg-muted-foreground/30"
-                              }`}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    ) : carousel.flyers && carousel.flyers.length === 1 ? (
-                      <img
-                        src={carousel.flyers[0].url}
-                        alt={carousel.flyers[0].titulo || carousel.nombre}
-                        className="w-full h-40 object-cover rounded-2xl shadow-md"
-                      />
-                    ) : null}
-                  </div>
-                ))}
-              </div>
-            ) : null}
+            )}
 
-            {/* Promociones */}
-            <div className="px-3 pt-2 pb-1">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="bg-red-500 p-1.5 rounded-lg">
-                  <Flame className="w-4 h-4 text-white" />
-                </div>
-                <h3 className="text-base font-bold">PROMOCIONES</h3>
-              </div>
-              <div className="flex gap-3 overflow-x-auto pb-3 scrollbar-hide">
-                {promoProducts.map((product) => (
-                  <Card
-                    key={`promo-${product.id}`}
-                    className="cursor-pointer hover:shadow-lg transition-all border-2 border-accent/40 overflow-hidden shrink-0 w-40 active:scale-[0.97]"
-                    onClick={() => onProductClick(product)}
-                  >
-                    <div className="relative">
-                      <img
-                        src={product.image || "/placeholder.svg"}
-                        alt={product.name}
-                        className="w-full h-32 object-cover bg-muted"
-                      />
-                      <Badge className="absolute top-1.5 right-1.5 bg-red-500 text-white font-bold text-[10px] px-1.5">
-                        PROMO
-                      </Badge>
-                      {product.stock === 0 && (
-                        <div className="absolute inset-0 bg-foreground/50 flex items-center justify-center">
-                          <span className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded">SIN STOCK</span>
-                        </div>
-                      )}
-                    </div>
-                    <CardContent className="p-2.5 space-y-1">
-                      <h4 className="font-semibold text-xs leading-tight line-clamp-2">{product.name}</h4>
-                      <p className="text-sm font-bold">${product.price.toLocaleString("es-AR")}</p>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
-
-            {/* Seccion productos */}
-            <div className="px-3 pt-1 pb-1">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="bg-primary p-1.5 rounded-lg">
-                  <Tag className="w-4 h-4 text-primary-foreground" />
-                </div>
-                <h3 className="text-base font-bold">CATALOGO</h3>
-              </div>
-            </div>
-
-            {/* Grilla de productos */}
-            <div className="px-3 pb-4">
-              <div className="grid grid-cols-2 gap-3">
-                {products.map((product) => (
-                  <Card
+            {/* Lista de productos horizontal - estilo Stitch */}
+            <div className="space-y-2">
+              {products.map((product) => {
+                const qty = getCartQuantity(product.id)
+                return (
+                  <div
                     key={product.id}
-                    className="cursor-pointer hover:shadow-lg transition-all border overflow-hidden active:scale-[0.97]"
-                    onClick={() => onProductClick(product)}
+                    className="flex gap-3 rounded-lg bg-card p-2.5 shadow-sm border border-border"
                   >
-                    <div className="relative">
+                    {/* Imagen */}
+                    <div
+                      className="h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-muted cursor-pointer"
+                      onClick={() => onProductClick(product)}
+                    >
                       <img
-                        src={product.image || "/placeholder.svg"}
                         alt={product.name}
-                        className={`w-full aspect-square object-cover bg-muted ${product.stock === 0 ? "opacity-60" : ""}`}
+                        className="h-full w-full object-contain"
+                        src={product.image || "/placeholder.svg"}
                       />
-                      {product.isPromo && product.stock > 0 && (
-                        <Badge className="absolute top-2 right-2 bg-accent text-accent-foreground font-bold text-xs">
-                          OFERTA
-                        </Badge>
-                      )}
-                      {product.stock === 0 && (
-                        <div className="absolute inset-0 flex items-end justify-center pb-3">
-                          <div className="flex items-center gap-1 bg-red-500/90 text-white text-xs font-bold px-2.5 py-1 rounded-full">
-                            <AlertTriangle className="w-3 h-3" />
-                            SIN STOCK
-                          </div>
-                        </div>
-                      )}
                     </div>
-                    <CardContent className="p-3 space-y-1.5">
-                      <h3 className="font-semibold text-sm leading-tight text-balance line-clamp-2">{product.name}</h3>
-                      <p className="text-xs text-muted-foreground">{product.brand}</p>
-                      <div className="flex items-end justify-between">
-                        <p className="text-base font-bold">${product.price.toLocaleString("es-AR")}</p>
-                        <p className={`text-xs ${product.stock === 0 ? "text-red-500 font-semibold" : "text-muted-foreground"}`}>
-                          {product.stock > 0 ? `Stock: ${product.stock}` : "Agotado"}
+                    {/* Info */}
+                    <div className="flex flex-1 flex-col justify-between">
+                      <div
+                        className="cursor-pointer"
+                        onClick={() => onProductClick(product)}
+                      >
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-destructive mb-0.5">
+                          {product.id}
                         </p>
+                        <h3 className="text-xs font-semibold leading-tight line-clamp-2">
+                          {product.name}
+                        </h3>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <p className="text-base font-extrabold">
+                            ${product.price.toLocaleString("es-AR")}
+                          </p>
+                          {product.stock === 0 && (
+                            <span className="text-[10px] font-semibold text-destructive bg-destructive/10 px-1.5 py-0.5 rounded">Sin stock</span>
+                          )}
+                        </div>
                       </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-              {totalProducts > 0 && (
-                <div className="mt-4 space-y-3">
-                  <p className="text-center text-xs text-muted-foreground">
-                    Mostrando {pageStart + 1}-{Math.min(pageStart + ITEMS_PER_PAGE, totalProducts)} de {totalProducts} productos
-                  </p>
-                  {totalPages > 1 && (
-                    <div className="flex items-center justify-center gap-1">
-                      <Button
-                        size="icon"
-                        variant="outline"
-                        className="h-8 w-8"
-                        disabled={currentPage === 1}
-                        onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                        aria-label="Pagina anterior"
-                      >
-                        <ChevronLeft className="h-4 w-4" />
-                      </Button>
-
-                      {visiblePages.map((page) => (
-                        <Button
-                          key={`page-${page}`}
-                          size="sm"
-                          variant={currentPage === page ? "default" : "outline"}
-                          className="h-8 min-w-8 px-2"
-                          onClick={() => setCurrentPage(page)}
-                        >
-                          {page}
-                        </Button>
-                      ))}
-
-                      <Button
-                        size="icon"
-                        variant="outline"
-                        className="h-8 w-8"
-                        disabled={currentPage === totalPages}
-                        onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                        aria-label="Pagina siguiente"
-                      >
-                        <ChevronRight className="h-4 w-4" />
-                      </Button>
+                      {/* Controles de cantidad */}
+                      <div className="flex items-center justify-end mt-1 gap-1.5">
+                        {qty > 0 && qty >= product.stock && (
+                          <CalendarClock className="w-3.5 h-3.5 text-amber-500" />
+                        )}
+                        <div className="flex items-center rounded-md bg-muted p-0.5 border border-border">
+                          <button
+                            className="flex h-7 w-7 items-center justify-center rounded hover:bg-card text-foreground/60"
+                            onClick={() => {
+                              if (qty > 0) onUpdateQuantity(product.id, qty - 1)
+                            }}
+                          >
+                            <Minus className="w-3.5 h-3.5" />
+                          </button>
+                          <span className="w-8 text-center text-xs font-bold select-none">
+                            {qty}
+                          </span>
+                          <button
+                            className="flex h-7 w-7 items-center justify-center rounded hover:bg-card text-foreground/60"
+                            onClick={() => handlePlusClick(product, qty)}
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                  )}
-                </div>
-              )}
-              {totalProducts === 0 && (
-                <div className="text-center py-12">
-                  <p className="text-muted-foreground">No se encontraron productos</p>
-                </div>
-              )}
+                  </div>
+                )
+              })}
             </div>
-          </div>
 
-          {/* WhatsApp flotante */}
-          <button
-            onClick={openWhatsApp}
-            className="fixed bottom-24 right-4 bg-[#25D366] w-14 h-14 rounded-full flex items-center justify-center shadow-2xl hover:scale-110 transition-transform active:scale-95 z-50"
-            aria-label="Contactar por WhatsApp"
-          >
-            <MessageCircle className="w-7 h-7 text-white" />
-          </button>
-        </>
-      )}
+            {totalProducts === 0 && (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground">No se encontraron productos</p>
+              </div>
+            )}
+
+            {/* Footer */}
+            <footer className="flex flex-col items-center py-12">
+              <p className="text-[10px] font-medium text-muted-foreground">© 2026 AFP Pinturas S.L.</p>
+            </footer>
+          </>
+        )}
+      </main>
+
+      {/* Dialog de reserva */}
+      <AlertDialog open={showReserveDialog} onOpenChange={setShowReserveDialog}>
+        <AlertDialogContent className="max-w-[90vw] rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-lg">
+              <AlertTriangle className="w-5 h-5 text-amber-500" />
+              {reserveProduct?.stock === 0 ? "Producto sin stock" : "Stock insuficiente"}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm leading-relaxed">
+              {reserveProduct?.stock === 0
+                ? `"${reserveProduct?.name}" no tiene stock disponible actualmente. ¿Deseas reservarlo? Te avisaremos cuando esté disponible.`
+                : `Solo hay ${reserveProduct?.stock} unidades de "${reserveProduct?.name}". ¿Deseas reservar las unidades faltantes?`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-row gap-2">
+            <AlertDialogCancel className="flex-1 mt-0">Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleReserveConfirm}
+              className="flex-1 bg-amber-500 text-white hover:bg-amber-600"
+            >
+              Sí, reservar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

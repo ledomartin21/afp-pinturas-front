@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,8 +15,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { ArrowLeft, ChevronLeft, ChevronRight, Minus, Plus, ShoppingCart, Percent, MessageCircle, AlertTriangle, CalendarClock, Loader2 } from "lucide-react"
-import type { Product } from "@/app/page"
+import { ArrowLeft, ChevronLeft, ChevronRight, Minus, Plus, ShoppingCart, Percent, AlertTriangle, CalendarClock, Loader2, Menu } from "lucide-react"
+import type { Product, Screen } from "@/app/page"
 import { productsService } from "@/lib/api"
 
 interface ProductDetailScreenProps {
@@ -25,14 +24,13 @@ interface ProductDetailScreenProps {
   onAddToCart: (product: Product, quantity: number, discount: number) => void
   onBack: () => void
   onProductClick: (product: Product) => void
+  onNavigate: (screen: Screen) => void
+  onOpenMenu: () => void
+  cartCount: number
   isAdmin: boolean
 }
 
-import { APP_CONSTANTS } from "@/lib/config/constants"
-
-const WSP_NUMBER = APP_CONSTANTS.WHATSAPP_NUMBER
-
-export function ProductDetailScreen({ product, onAddToCart, onBack, onProductClick, isAdmin }: ProductDetailScreenProps) {
+export function ProductDetailScreen({ product, onAddToCart, onBack, onProductClick, onNavigate, onOpenMenu, cartCount, isAdmin }: ProductDetailScreenProps) {
   const [quantity, setQuantity] = useState(1)
   const [showFeedback, setShowFeedback] = useState(false)
   const [showReserveDialog, setShowReserveDialog] = useState(false)
@@ -152,34 +150,41 @@ export function ProductDetailScreen({ product, onAddToCart, onBack, onProductCli
     setActiveImageIndex((i) => (i + 1) % galleryImages.length)
   }
 
-  const openWhatsApp = () => {
-    window.open(
-      `https://wa.me/${WSP_NUMBER}?text=Hola! Quiero consultar sobre: ${product.name} ($${product.price.toLocaleString("es-AR")})`,
-      "_blank",
-    )
-  }
-
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <header className="bg-card border-b sticky top-0 z-10">
-        <div className="h-1 bg-accent" />
-        <div className="p-3 flex items-center gap-3">
-          <button onClick={onBack} className="p-2 hover:bg-muted rounded-lg transition-colors">
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <h1 className="text-base font-bold flex-1">Detalle del Producto</h1>
+      {/* Header dorado consistente con el resto de la app */}
+      <header className="bg-primary px-4 pt-6 pb-4 rounded-b-xl shadow-lg relative z-10">
+        <div className="flex items-center justify-between">
           <button
-            onClick={openWhatsApp}
-            className="bg-[#25D366] w-9 h-9 rounded-full flex items-center justify-center hover:scale-110 transition-transform"
-            aria-label="Consultar por WhatsApp"
+            onClick={onBack}
+            className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center border border-white/30"
+            aria-label="Volver"
           >
-            <MessageCircle className="w-4 h-4 text-white" />
+            <ArrowLeft className="w-5 h-5 text-white" />
+          </button>
+
+          <img
+            src="/images/logo.png"
+            alt="AFP Pinturas"
+            className="h-11 w-auto object-contain drop-shadow-md"
+          />
+
+          <button
+            onClick={() => onNavigate("cart")}
+            className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center border border-white/30 relative"
+            aria-label="Carrito"
+          >
+            <ShoppingCart className="w-5 h-5 text-white" />
+            {cartCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-white text-primary text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center">
+                {cartCount > 99 ? "99+" : cartCount}
+              </span>
+            )}
           </button>
         </div>
       </header>
 
-      <div ref={scrollRef} className="flex-1 overflow-auto bg-muted/30">
+      <div ref={scrollRef} className="flex-1 overflow-auto">
         {/* Imagen */}
         <div className="relative bg-card">
           <img
@@ -246,17 +251,18 @@ export function ProductDetailScreen({ product, onAddToCart, onBack, onProductCli
           </div>
         )}
 
-        <div className="p-4 space-y-4">
-          {/* Info */}
+        <div className="px-4 pb-4 pt-4 space-y-4">
+          {/* SKU + Info */}
           <div className="space-y-1">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-destructive">{product.id}</p>
             <h1 className="text-xl font-bold text-balance">{product.name}</h1>
             <p className="text-muted-foreground text-sm">
               {product.category} {product.brand ? `- ${product.brand}` : ""}
             </p>
           </div>
 
-          {/* Precio */}
-          <Card className="border">
+          {/* Precio y Stock */}
+          <Card className="border-0 shadow-sm">
             <CardContent className="p-4">
               <div className="flex items-baseline justify-between">
                 <div>
@@ -296,10 +302,12 @@ export function ProductDetailScreen({ product, onAddToCart, onBack, onProductCli
 
           {/* Descuento admin */}
           {isAdmin && (
-            <Card className="bg-accent/10 border border-accent/30">
+            <Card className="border-0 shadow-sm bg-accent/10">
               <CardContent className="p-4 space-y-3">
                 <div className="flex items-center gap-2">
-                  <Percent className="w-5 h-5 text-accent-foreground" />
+                  <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
+                    <Percent className="w-4 h-4 text-white" />
+                  </div>
                   <h3 className="font-semibold text-sm">Descuento Administrativo</h3>
                 </div>
                 <div className="flex items-center gap-2">
@@ -348,15 +356,6 @@ export function ProductDetailScreen({ product, onAddToCart, onBack, onProductCli
             </div>
           </div>
 
-          {/* WhatsApp */}
-          <button
-            onClick={openWhatsApp}
-            className="w-full flex items-center justify-center gap-2 bg-[#25D366] text-white rounded-xl py-3 font-semibold hover:bg-[#20BD5A] transition-colors active:scale-[0.98]"
-          >
-            <MessageCircle className="w-5 h-5" />
-            Consultar por WhatsApp
-          </button>
-
           {/* Sugerencias - Grid como en catalogo */}
           {suggestedLoading ? (
             <div className="space-y-3 pt-1">
@@ -372,7 +371,7 @@ export function ProductDetailScreen({ product, onAddToCart, onBack, onProductCli
                 {suggestedProducts.map((sp) => (
                   <Card
                     key={sp.id}
-                    className="cursor-pointer hover:shadow-lg transition-all border overflow-hidden active:scale-[0.97]"
+                    className="cursor-pointer hover:shadow-md transition-all border-0 shadow-sm overflow-hidden active:scale-[0.97]"
                     onClick={() => onProductClick(sp)}
                   >
                     <div className="relative">
@@ -393,6 +392,7 @@ export function ProductDetailScreen({ product, onAddToCart, onBack, onProductCli
                       )}
                     </div>
                     <CardContent className="p-3 space-y-1">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-destructive">{sp.id}</p>
                       <p className="text-xs text-muted-foreground">{sp.brand || sp.category}</p>
                       <h4 className="font-semibold text-sm leading-tight line-clamp-2">{sp.name}</h4>
                       <p className="text-base font-bold">${sp.price.toLocaleString("es-AR")}</p>

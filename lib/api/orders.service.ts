@@ -6,7 +6,7 @@ import { productsService } from "./products.service"
 export type CreatePedidoPayload = {
   usuarioId?: number
   metodoEntrega: "delivery" | "pickup"
-  metodoPago: "transfer" | "cash" | "card"
+  metodoPago: "transfer" | "cash"
   subtotal: number
   descuentoTotal?: number
   costoEnvio?: number

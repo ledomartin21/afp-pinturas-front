@@ -4,112 +4,117 @@
 @custom-variant dark (&:is(.dark *));
 
 /* ============================================
-   COLOR SYSTEM - AFP PINTURAS
+   COLOR SYSTEM - AFP PINTURAS (Paleta Stitch)
    ============================================
-   
+
    COLORES PRINCIPALES DE LA APP:
-   - primary: Gris sobrio (para botones y elementos principales)
-   - secondary/accent: Amarillo sobrio (para acentos y highlights)
-   - top-bar: Amarillo para la barra superior
-   
+   - primary: Dorado/Ámbar oklch(0.75 0.15 85) - Header, nav, botones, iconos
+   - secondary: Dorado oscuro oklch(0.65 0.12 85) - Variante secundaria
+   - accent: Dorado claro oklch(0.85 0.12 85) - Highlights, badges
+   - background: Crema cálido oklch(0.98 0.005 90)
+   - foreground: Oscuro cálido oklch(0.2 0.02 90)
+   - destructive: Rojo oklch(0.45 0.15 25) ~#ae3b36
+   - card/sidebar: Blanco puro
+   - border-radius: 10px (0.625rem)
+
    Para cambiar los colores de la app, modifica estos valores:
    ============================================ */
 
 :root {
-  /* === COLORES PRINCIPALES === */
-  --primary: oklch(0.35 0.02 250); /* Gris azulado oscuro - Header, nav, botones */
-  --primary-foreground: oklch(0.99 0 0); /* Texto en botones principales (blanco) */
+  /* === COLORES PRINCIPALES (Paleta Stitch) === */
+  --primary: oklch(0.75 0.15 85); /* Dorado/Ámbar - Header, nav, botones, iconos activos */
+  --primary-foreground: oklch(0.99 0 0); /* Texto sobre primary (blanco) */
 
-  --secondary: oklch(0.82 0.16 85); /* Amarillo calido - Acentos secundarios */
-  --secondary-foreground: oklch(0.25 0.02 60); /* Texto en elementos secundarios */
+  --secondary: oklch(0.65 0.12 85); /* Dorado más oscuro - Variante secundaria */
+  --secondary-foreground: oklch(0.99 0 0); /* Texto sobre secondary (blanco) */
 
-  --accent: oklch(0.80 0.15 85); /* Amarillo - Highlights y acentos */
-  --accent-foreground: oklch(0.25 0.02 60); /* Texto en elementos acentuados */
+  --accent: oklch(0.85 0.12 85); /* Dorado claro - Highlights, badges, hover */
+  --accent-foreground: oklch(0.2 0.02 90); /* Texto sobre accent (oscuro) */
 
-  --top-bar: oklch(0.97 0.01 85); /* Fondo suave amarillo claro - Barra superior */
+  --top-bar: oklch(0.75 0.15 85); /* Barra superior = primary */
 
   /* === COLORES DE FONDO === */
-  --background: oklch(0.99 0 0); /* Fondo principal (blanco suave) */
-  --foreground: oklch(0.2 0.005 60); /* Texto principal (oscuro) */
+  --background: oklch(0.98 0.005 90); /* Crema cálido (fondo general) */
+  --foreground: oklch(0.2 0.02 90); /* Texto principal (oscuro cálido) */
 
   /* === CARDS Y ELEMENTOS === */
-  --card: oklch(1 0 0); /* Fondo de tarjetas (blanco) */
-  --card-foreground: oklch(0.2 0.005 60); /* Texto en tarjetas */
+  --card: oklch(1 0 0); /* Fondo de tarjetas (blanco puro) */
+  --card-foreground: oklch(0.2 0.02 90); /* Texto en tarjetas */
 
   --popover: oklch(1 0 0); /* Fondo de popovers */
-  --popover-foreground: oklch(0.2 0.005 60); /* Texto en popovers */
+  --popover-foreground: oklch(0.2 0.02 90); /* Texto en popovers */
 
   /* === ELEMENTOS NEUTRALES === */
-  --muted: oklch(0.96 0.002 60); /* Fondo suave para elementos deshabilitados */
-  --muted-foreground: oklch(0.5 0.005 60); /* Texto deshabilitado */
+  --muted: oklch(0.96 0.005 90); /* Fondo suave cálido */
+  --muted-foreground: oklch(0.5 0.01 90); /* Texto deshabilitado */
 
   /* === BORDES Y INPUTS === */
-  --border: oklch(0.9 0.002 60); /* Bordes de elementos */
-  --input: oklch(0.9 0.002 60); /* Bordes de inputs */
-  --ring: oklch(0.80 0.15 85); /* Color de foco (amarillo) */
+  --border: oklch(0.9 0.005 90); /* Bordes cálidos */
+  --input: oklch(0.9 0.005 90); /* Bordes de inputs */
+  --ring: oklch(0.75 0.15 85); /* Color de foco = primary */
 
   /* === ELEMENTOS DESTRUCTIVOS === */
-  --destructive: oklch(0.577 0.245 27.325); /* Rojo para acciones destructivas */
+  --destructive: oklch(0.45 0.15 25); /* Rojo (#ae3b36) para SKUs y acciones destructivas */
   --destructive-foreground: oklch(0.99 0 0); /* Texto en botones destructivos */
 
-  /* === SIDEBAR (si se usa) === */
-  --sidebar: oklch(0.99 0 0);
-  --sidebar-foreground: oklch(0.2 0.005 60);
-  --sidebar-primary: oklch(0.45 0.02 60);
+  /* === SIDEBAR === */
+  --sidebar: oklch(1 0 0); /* Blanco */
+  --sidebar-foreground: oklch(0.2 0.02 90);
+  --sidebar-primary: oklch(0.75 0.15 85); /* Dorado para iconos activos */
   --sidebar-primary-foreground: oklch(0.99 0 0);
-  --sidebar-accent: oklch(0.96 0.002 60);
-  --sidebar-accent-foreground: oklch(0.2 0.005 60);
-  --sidebar-border: oklch(0.9 0.002 60);
-  --sidebar-ring: oklch(0.72 0.12 85);
+  --sidebar-accent: oklch(0.96 0.005 90);
+  --sidebar-accent-foreground: oklch(0.2 0.02 90);
+  --sidebar-border: oklch(0.92 0.005 90);
+  --sidebar-ring: oklch(0.75 0.15 85);
 
-  /* === CHARTS (gráficos) === */
-  --chart-1: oklch(0.45 0.02 60);
-  --chart-2: oklch(0.72 0.12 85);
-  --chart-3: oklch(0.55 0.01 60);
-  --chart-4: oklch(0.75 0.1 85);
-  --chart-5: oklch(0.35 0.02 60);
+  /* === CHARTS === */
+  --chart-1: oklch(0.75 0.15 85);
+  --chart-2: oklch(0.65 0.12 85);
+  --chart-3: oklch(0.55 0.08 85);
+  --chart-4: oklch(0.85 0.12 85);
+  --chart-5: oklch(0.45 0.15 25);
 
   /* === BORDER RADIUS === */
-  --radius: 0.75rem; /* Radio de bordes general */
+  --radius: 0.625rem; /* 10px como define Stitch */
 }
 
 /* ============================================
    MODO OSCURO (si se implementa)
    ============================================ */
 .dark {
-  --background: oklch(0.15 0.005 60);
+  --background: oklch(0.15 0.01 90);
   --foreground: oklch(0.98 0 0);
-  --card: oklch(0.18 0.005 60);
+  --card: oklch(0.18 0.01 90);
   --card-foreground: oklch(0.98 0 0);
-  --popover: oklch(0.18 0.005 60);
+  --popover: oklch(0.18 0.01 90);
   --popover-foreground: oklch(0.98 0 0);
-  --primary: oklch(0.55 0.02 60);
+  --primary: oklch(0.75 0.15 85);
   --primary-foreground: oklch(0.98 0 0);
-  --secondary: oklch(0.75 0.12 85);
-  --secondary-foreground: oklch(0.15 0.005 60);
-  --muted: oklch(0.25 0.005 60);
-  --muted-foreground: oklch(0.65 0.005 60);
+  --secondary: oklch(0.65 0.12 85);
+  --secondary-foreground: oklch(0.98 0 0);
+  --muted: oklch(0.25 0.01 90);
+  --muted-foreground: oklch(0.65 0.01 90);
   --accent: oklch(0.75 0.12 85);
-  --accent-foreground: oklch(0.15 0.005 60);
-  --destructive: oklch(0.5 0.2 27);
+  --accent-foreground: oklch(0.15 0.01 90);
+  --destructive: oklch(0.5 0.15 25);
   --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(0.25 0.005 60);
-  --input: oklch(0.25 0.005 60);
-  --ring: oklch(0.75 0.12 85);
-  --top-bar: oklch(0.75 0.12 85);
-  --chart-1: oklch(0.55 0.02 60);
-  --chart-2: oklch(0.75 0.12 85);
-  --chart-3: oklch(0.45 0.01 60);
-  --chart-4: oklch(0.78 0.1 85);
-  --chart-5: oklch(0.4 0.02 60);
-  --sidebar: oklch(0.18 0.005 60);
+  --border: oklch(0.28 0.01 90);
+  --input: oklch(0.28 0.01 90);
+  --ring: oklch(0.75 0.15 85);
+  --top-bar: oklch(0.75 0.15 85);
+  --chart-1: oklch(0.75 0.15 85);
+  --chart-2: oklch(0.65 0.12 85);
+  --chart-3: oklch(0.55 0.08 85);
+  --chart-4: oklch(0.85 0.12 85);
+  --chart-5: oklch(0.5 0.15 25);
+  --sidebar: oklch(0.18 0.01 90);
   --sidebar-foreground: oklch(0.98 0 0);
-  --sidebar-primary: oklch(0.55 0.02 60);
+  --sidebar-primary: oklch(0.75 0.15 85);
   --sidebar-primary-foreground: oklch(0.98 0 0);
-  --sidebar-accent: oklch(0.25 0.005 60);
+  --sidebar-accent: oklch(0.25 0.01 90);
   --sidebar-accent-foreground: oklch(0.98 0 0);
-  --sidebar-border: oklch(0.25 0.005 60);
-  --sidebar-ring: oklch(0.75 0.12 85);
+  --sidebar-border: oklch(0.28 0.01 90);
+  --sidebar-ring: oklch(0.75 0.15 85);
 }
 
 /* ============================================

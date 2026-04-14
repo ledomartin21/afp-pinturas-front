@@ -57,7 +57,7 @@ export const productsService = {
     const brand = api.marcaId ? marcaMap.get(api.marcaId) || `Marca ${api.marcaId}` : "Sin marca"
 
     return {
-      id: api.codigo || String(api.id || ""),
+      id: (api.codigo || String(api.id || "")).trim(),
       name: api.nombre || "Producto sin nombre",
       price: Number(api.precio || 0),
       stock: Number(api.stock || 0),

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { LoginScreen } from "@/components/login-screen"
+import { HomeScreen } from "@/components/home-screen"
 import { CatalogScreen } from "@/components/catalog-screen"
 import { ProductDetailScreen } from "@/components/product-detail-screen"
 import { CartScreen } from "@/components/cart-screen"
@@ -11,12 +12,14 @@ import { OrdersScreen } from "@/components/orders-screen"
 import { OrderDetailScreen } from "@/components/order-detail-screen"
 import { ProfileScreen } from "@/components/profile-screen"
 import { AdminCarouselScreen } from "@/components/admin-carousel-screen"
-import { MobileNav } from "@/components/mobile-nav"
+import { SidebarMenu } from "@/components/sidebar-menu"
 import { authService, ordersService } from "@/lib/api"
 import type { CreatePedidoPayload } from "@/lib/api/orders.service"
+import { APP_CONSTANTS } from "@/lib/config/constants"
 
 export type Screen =
   | "login"
+  | "home"
   | "catalog"
   | "product-detail"
   | "cart"
@@ -73,6 +76,8 @@ export default function Home() {
   const [lastOrderTotal, setLastOrderTotal] = useState(0)
   const [pendingTransferOrder, setPendingTransferOrder] = useState<CreatePedidoPayload | null>(null)
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [initialCategory, setInitialCategory] = useState<string | undefined>(undefined)
 
   useEffect(() => {
     const bootstrapSession = async () => {
@@ -90,7 +95,7 @@ export default function Home() {
       const rolId = Number(localStorage.getItem("rolId") || 0)
       setIsLoggedIn(true)
       setIsAdmin(rolId === ADMIN_ROL_ID)
-      setCurrentScreen("catalog")
+      setCurrentScreen("home")
       setIsBootstrappingSession(false)
     }
 
@@ -116,7 +121,7 @@ export default function Home() {
     localStorage.setItem("usuarioId", String(usuarioId))
     setIsLoggedIn(true)
     setIsAdmin(rolId === ADMIN_ROL_ID)
-    navigateToScreen("catalog")
+    navigateToScreen("home")
   }
 
   const handleAddToCart = (product: Product, quantity = 1, discount = 0) => {
@@ -190,6 +195,15 @@ export default function Home() {
     navigateToScreen("orders")
   }
 
+  const handleLogout = () => {
+    authService.logout()
+    localStorage.removeItem("rolId")
+    localStorage.removeItem("usuarioId")
+    setIsLoggedIn(false)
+    setIsAdmin(false)
+    navigateToScreen("login")
+  }
+
   const renderScreen = () => {
     if (isBootstrappingSession) {
       return (
@@ -204,8 +218,27 @@ export default function Home() {
     }
 
     switch (currentScreen) {
+      case "home":
+        return (
+          <HomeScreen
+            onNavigate={navigateToScreen}
+            onOpenMenu={() => setSidebarOpen(true)}
+            cartCount={cart.reduce((sum, item) => sum + item.quantity, 0)}
+          />
+        )
       case "catalog":
-        return <CatalogScreen onProductClick={handleProductClick} onNavigate={navigateToScreen} />
+        return (
+          <CatalogScreen
+            onProductClick={handleProductClick}
+            onNavigate={navigateToScreen}
+            onOpenMenu={() => setSidebarOpen(true)}
+            cart={cart}
+            onAddToCart={handleAddToCart}
+            onUpdateQuantity={handleUpdateQuantity}
+            initialCategory={initialCategory}
+            onCategoryApplied={() => setInitialCategory(undefined)}
+          />
+        )
       case "product-detail":
         return (
           <ProductDetailScreen
@@ -213,6 +246,9 @@ export default function Home() {
             onAddToCart={handleAddToCart}
             onBack={() => navigateToScreen("catalog")}
             onProductClick={handleProductClick}
+            onNavigate={navigateToScreen}
+            onOpenMenu={() => setSidebarOpen(true)}
+            cartCount={cart.reduce((sum, item) => sum + item.quantity, 0)}
             isAdmin={isAdmin}
           />
         )
@@ -250,6 +286,9 @@ export default function Home() {
               setSelectedOrder(order)
               navigateToScreen("order-detail")
             }}
+            onNavigate={navigateToScreen}
+            onOpenMenu={() => setSidebarOpen(true)}
+            cartCount={cart.reduce((sum, item) => sum + item.quantity, 0)}
           />
         )
       case "order-detail":
@@ -257,14 +296,10 @@ export default function Home() {
       case "profile":
         return (
           <ProfileScreen
-            onLogout={() => {
-              authService.logout()
-              localStorage.removeItem("rolId")
-              localStorage.removeItem("usuarioId")
-              setIsLoggedIn(false)
-              setIsAdmin(false)
-              navigateToScreen("login")
-            }}
+            onLogout={handleLogout}
+            onNavigate={navigateToScreen}
+            onOpenMenu={() => setSidebarOpen(true)}
+            cartCount={cart.reduce((sum, item) => sum + item.quantity, 0)}
           />
         )
       case "admin-carousel":
@@ -281,16 +316,35 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background">
       <div className="mx-auto max-w-md h-screen flex flex-col">
-        <div className="flex-1 overflow-auto pb-20">{renderScreen()}</div>
-        {isLoggedIn && currentScreen !== "login" && (
-          <MobileNav
-            currentScreen={currentScreen}
-            onNavigate={navigateToScreen}
-            cartCount={cart.reduce((sum, item) => sum + item.quantity, 0)}
-            isAdmin={isAdmin}
-          />
-        )}
+        <div className="flex-1 overflow-auto">{renderScreen()}</div>
       </div>
+
+      {/* Sidebar menu global */}
+      {isLoggedIn && (
+        <SidebarMenu
+          open={sidebarOpen}
+          onOpenChange={setSidebarOpen}
+          onNavigate={navigateToScreen}
+          onCategoryNavigate={(category) => {
+            setInitialCategory(category)
+            navigateToScreen("catalog")
+          }}
+          onLogout={handleLogout}
+        />
+      )}
+
+      {/* WhatsApp flotante global */}
+      {isLoggedIn && currentScreen !== "login" && (
+        <a
+          href={`https://wa.me/${APP_CONSTANTS.WHATSAPP_NUMBER}?text=${encodeURIComponent("Hola! Quiero consultar sobre productos de AFP Pinturas")}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="fixed bottom-6 right-6 w-14 h-14 rounded-full flex items-center justify-center shadow-lg z-50 active:scale-95 transition-transform hover:scale-105"
+          aria-label="Contactar por WhatsApp"
+        >
+          <img src="/images/whatsapp.svg" alt="WhatsApp" className="w-14 h-14" />
+        </a>
+      )}
     </div>
   )
 }
