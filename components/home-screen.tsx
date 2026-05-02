@@ -1,283 +1,333 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
-import { Search, ShoppingBag, ClipboardList, Menu, ShoppingCart, ChevronRight, ChevronDown, Loader2 } from "lucide-react"
-import { getCategoryIcon } from "@/lib/config/category-icons"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent } from "@/components/ui/card"
-import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from "@/components/ui/carousel"
+import { useEffect, useMemo, useState } from "react"
+import { ClipboardList, Menu, Search, ShoppingBag, ShoppingCart } from "lucide-react"
 import type { Screen } from "@/app/page"
-import { carouselService, productsService } from "@/lib/api"
-import type { Carrusel } from "@/lib/types"
+import { Card, CardContent } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { getCategoryIcon } from "@/lib/config/category-icons"
+import { carouselService, productsService, userService } from "@/lib/api"
+import type { Carrusel, Flyer } from "@/lib/types"
 
 const VISIBLE_CATEGORIES = 3
 
 interface HomeScreenProps {
   onNavigate: (screen: Screen) => void
+  onSearchNavigate: (search: string) => void
+  onCatalogPresetNavigate: (preset: "promotions" | "afp" | "all") => void
   onOpenMenu: () => void
   cartCount: number
 }
 
-export function HomeScreen({ onNavigate, onOpenMenu, cartCount }: HomeScreenProps) {
+export function HomeScreen({ onNavigate, onSearchNavigate, onCatalogPresetNavigate, onOpenMenu, cartCount }: HomeScreenProps) {
   const [carousels, setCarousels] = useState<Carrusel[]>([])
-  const [carouselsLoading, setCarouselsLoading] = useState(true)
   const [categories, setCategories] = useState<string[]>([])
-  const [showAllCategories, setShowAllCategories] = useState(false)
-  const [carouselApis, setCarouselApis] = useState<Map<number, CarouselApi>>(new Map())
-  const [activeSlides, setActiveSlides] = useState<Map<number, number>>(new Map())
+  const [greetingName, setGreetingName] = useState("")
+  const [searchTerm, setSearchTerm] = useState("")
+  const [downloadsCarousel, setDownloadsCarousel] = useState<Carrusel | null>(null)
+  const [downloadIndex, setDownloadIndex] = useState(0)
 
   useEffect(() => {
-    const loadCategories = async () => {
+    const loadHeaderData = async () => {
       try {
-        const catalogs = await productsService.getCatalogs()
+        const [catalogs, profile] = await Promise.all([
+          productsService.getCatalogs(),
+          userService.getProfile().catch(() => null),
+        ])
+
         setCategories(Array.from(catalogs.rubroMap.values()))
+        const sourceName = profile?.razonSocial?.trim() || profile?.nombreUsuario?.trim() || ""
+        setGreetingName(sourceName.split(" ").slice(0, 2).join(" "))
       } catch {
         setCategories([])
+        setGreetingName("")
       }
     }
-    loadCategories()
+
+    void loadHeaderData()
   }, [])
 
   useEffect(() => {
     const loadCarousels = async () => {
       try {
-        setCarouselsLoading(true)
         const allCarousels = await carouselService.getCarousels()
-        const activeCarousels = allCarousels.filter((c) => c.activo)
-        const carouselsWithFlyers = await Promise.all(
-          activeCarousels.map((c) => carouselService.getCarouselById(c.id))
+        const targetCarousel = allCarousels.find(
+          (carousel) => carousel.activo && /catalog|cat[aá]logo|rubro|novedad/i.test(carousel.nombre || ""),
         )
-        setCarousels(carouselsWithFlyers.filter((c) => c.flyers && c.flyers.length > 0))
+
+        if (!targetCarousel) {
+          setCarousels([])
+          setDownloadsCarousel(null)
+          return
+        }
+
+        const [detailed, downloadsDetailed] = await Promise.all([
+          carouselService.getCarouselById(targetCarousel.id),
+          (() => {
+            const explicitDownloads = allCarousels.find((carousel) => carousel.id === 1)
+            if (!explicitDownloads) return Promise.resolve(null)
+            return carouselService.getCarouselById(explicitDownloads.id)
+          })(),
+        ])
+
+        setCarousels((detailed.flyers || []).length > 0 ? [detailed] : [])
+        setDownloadsCarousel((downloadsDetailed?.flyers || []).length > 0 ? downloadsDetailed : null)
       } catch {
         setCarousels([])
-      } finally {
-        setCarouselsLoading(false)
+        setDownloadsCarousel(null)
       }
     }
-    loadCarousels()
+
+    void loadCarousels()
   }, [])
 
-  const onCarouselApi = useCallback((carouselId: number, api: CarouselApi) => {
-    if (!api) return
-    setCarouselApis((prev) => new Map(prev).set(carouselId, api))
-
-    const onSelect = () => {
-      setActiveSlides((prev) => new Map(prev).set(carouselId, api.selectedScrollSnap()))
-    }
-    api.on("select", onSelect)
-    onSelect()
-  }, [])
-
-  // Auto-advance all carousels
+  const downloadFlyers = downloadsCarousel?.flyers ?? []
   useEffect(() => {
-    if (carouselApis.size === 0) return
-    const interval = setInterval(() => {
-      carouselApis.forEach((api) => {
-        if (!api) return
-        if (api.canScrollNext()) {
-          api.scrollNext()
-        } else {
-          api.scrollTo(0)
+    if (downloadFlyers.length <= 1) return
+
+    const timer = window.setInterval(() => {
+      setDownloadIndex((prev) => (prev + 1) % downloadFlyers.length)
+    }, 4500)
+
+    return () => window.clearInterval(timer)
+  }, [downloadFlyers.length])
+
+  useEffect(() => {
+    setDownloadIndex(0)
+  }, [downloadsCarousel?.id])
+
+  const configuredCarousel = useMemo(
+    () => carousels.find((carousel) => /catalog|cat[aá]logo|rubro|novedad/i.test(carousel.nombre || "")) ?? null,
+    [carousels],
+  )
+
+  const tiles = useMemo(() => {
+    const fallbackTitles = ["Promociones", "Linea AFP", "Catalogo completo"]
+    const fallbackActions: Array<"promotions" | "afp" | "all"> = ["promotions", "afp", "all"]
+
+    if (configuredCarousel?.flyers?.length) {
+      return Array.from({ length: VISIBLE_CATEGORIES }, (_, index) => {
+        const flyer = configuredCarousel.flyers?.[index]
+        return {
+          id: flyer ? `flyer-${flyer.id}` : `fallback-${index}`,
+          title: flyer?.titulo || fallbackTitles[index],
+          image: flyer?.url || null,
+          action: fallbackActions[index],
         }
       })
-    }, 4000)
-    return () => clearInterval(interval)
-  }, [carouselApis])
+    }
 
-  const visibleCategories = showAllCategories ? categories : categories.slice(0, VISIBLE_CATEGORIES)
+    return Array.from({ length: VISIBLE_CATEGORIES }, (_, index) => ({
+      id: categories[index] || `fallback-category-${index}`,
+      title: fallbackTitles[index],
+      image: null,
+      action: fallbackActions[index],
+    }))
+  }, [configuredCarousel, categories])
+
+  const handleTileNavigate = (action: "promotions" | "afp" | "all") => {
+    onCatalogPresetNavigate(action)
+  }
+
+  const handleSearchSubmit = () => {
+    onSearchNavigate(searchTerm.trim())
+  }
+
+  const handleDownloadFile = async (flyer: Flyer) => {
+    if (!flyer.archivoNombreOriginal && !flyer.archivoRuta) {
+      return
+    }
+
+    try {
+      await carouselService.downloadFlyerFile(flyer)
+    } catch {
+      // noop
+    }
+  }
 
   return (
-    <div className="flex flex-col h-full bg-background">
-      {/* Header amarillo sólido estilo Stitch */}
-      <div className="bg-primary px-4 pt-6 pb-8 rounded-b-xl shadow-lg">
-        {/* Top bar */}
-        <div className="flex items-center justify-between mb-5">
-          <button
-            onClick={onOpenMenu}
-            className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center border border-white/30"
-          >
-            <Menu className="w-5 h-5 text-white" />
-          </button>
-
-          {/* Logo central */}
-          <img
-            src="/images/logo.png"
-            alt="AFP Pinturas"
-            className="h-12 w-auto object-contain drop-shadow-md"
-          />
-
-          {/* Carrito */}
-          <button
-            onClick={() => onNavigate("cart")}
-            className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center border border-white/30 relative"
-          >
-            <ShoppingCart className="w-5 h-5 text-white" />
-            {cartCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-white text-primary text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center">
-                {cartCount > 99 ? "99+" : cartCount}
-              </span>
-            )}
-          </button>
-        </div>
-
-        {/* Barra de busqueda */}
-        <div
-          className="relative cursor-pointer shadow-xl"
-          onClick={() => onNavigate("catalog")}
-        >
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-primary" />
-          <Input
-            placeholder="¿Qué estás buscando hoy?"
-            readOnly
-            className="pl-12 h-14 bg-white border-none text-foreground rounded-2xl font-medium shadow-inner cursor-pointer placeholder:text-muted-foreground"
-          />
-        </div>
-      </div>
-
-      {/* Contenido scrollable */}
-      <div className="flex-1 overflow-auto px-4 pb-6">
-        {/* Acciones rapidas */}
-        <div className="grid grid-cols-2 gap-3 -mt-3">
-          <Card
-            className="cursor-pointer hover:shadow-md transition-all active:scale-[0.97] border-0 shadow-sm"
-            onClick={() => onNavigate("catalog")}
-          >
-            <CardContent className="flex flex-col items-center justify-center py-5 gap-2">
-              <div className="w-10 h-10 rounded-xl bg-primary/15 flex items-center justify-center">
-                <ShoppingBag className="w-5 h-5 text-primary" />
-              </div>
-              <span className="text-sm font-medium text-foreground">Hacer pedido</span>
-            </CardContent>
-          </Card>
-
-          <Card
-            className="cursor-pointer hover:shadow-md transition-all active:scale-[0.97] border-0 shadow-sm"
-            onClick={() => onNavigate("orders")}
-          >
-            <CardContent className="flex flex-col items-center justify-center py-5 gap-2">
-              <div className="w-10 h-10 rounded-xl bg-primary/15 flex items-center justify-center">
-                <ClipboardList className="w-5 h-5 text-primary" />
-              </div>
-              <span className="text-sm font-medium text-foreground">Mis pedidos</span>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Explorar Catalogo */}
-        <div className="mt-6">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-bold text-foreground">Explorar Catálogo</h2>
+    <div className="flex h-full flex-col bg-background">
+      <div className="flex-1 overflow-auto pb-5">
+        <section className="rounded-b-[1.8rem] bg-primary px-4 pb-6 pt-5 text-primary-foreground shadow-lg">
+          <div className="flex items-center justify-between">
             <button
-              onClick={() => onNavigate("catalog")}
-              className="flex items-center text-sm font-medium text-primary hover:underline"
+              onClick={onOpenMenu}
+              className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/25 bg-white/15 backdrop-blur-sm"
+              aria-label="Abrir menú"
             >
-              Ver todo
-              <ChevronRight className="w-4 h-4 ml-0.5" />
+              <Menu className="h-5 w-5" />
+            </button>
+
+            <img src="/images/logo.png" alt="AFP Pinturas" className="h-11 w-auto object-contain drop-shadow-md" />
+
+            <button
+              onClick={() => onNavigate("cart")}
+              className="relative flex h-10 w-10 items-center justify-center rounded-2xl border border-white/25 bg-white/15 backdrop-blur-sm"
+              aria-label="Carrito"
+            >
+              <ShoppingCart className="h-5 w-5" />
+              {cartCount > 0 && (
+                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1 text-[10px] font-bold text-primary">
+                  {cartCount > 99 ? "99+" : cartCount}
+                </span>
+              )}
             </button>
           </div>
 
-          <div className="grid gap-3 grid-cols-3">
-            {visibleCategories.map((cat) => {
-              const CategoryIcon = getCategoryIcon(cat)
-              return (
-                <Card
-                  key={cat}
-                  className="cursor-pointer hover:shadow-md transition-all active:scale-[0.97] border-0 shadow-sm"
-                  onClick={() => onNavigate("catalog")}
-                >
-                  <CardContent className="flex flex-col items-center justify-center py-4 gap-2">
-                    <div className="w-10 h-10 rounded-xl bg-primary/15 flex items-center justify-center">
-                      <CategoryIcon className="w-5 h-5 text-primary" />
-                    </div>
-                    <span className="text-xs font-medium text-foreground text-center line-clamp-2">{cat}</span>
-                  </CardContent>
-                </Card>
-              )
-            })}
+          <div className="mt-5 space-y-1.5">
+            <p className="text-[1.75rem] font-bold leading-none tracking-tight">
+              Hola{greetingName ? ` ${greetingName.toUpperCase()}` : ""},
+            </p>
+            <p className="max-w-[18rem] text-sm text-primary-foreground/85">¿En qué podemos ayudarte hoy?</p>
           </div>
-          {categories.length > VISIBLE_CATEGORIES && (
-            <button
-              onClick={() => setShowAllCategories(!showAllCategories)}
-              className="flex items-center justify-center gap-1 w-full mt-3 py-2 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
-            >
-              {showAllCategories ? "Mostrar menos" : `Mostrar más (${categories.length - VISIBLE_CATEGORIES})`}
-              <ChevronDown className={`w-4 h-4 transition-transform ${showAllCategories ? "rotate-180" : ""}`} />
-            </button>
-          )}
-        </div>
 
-        {/* Novedades */}
-        <div className="mt-6">
-          <h2 className="text-lg font-bold text-foreground mb-3">Novedades</h2>
-
-          {carouselsLoading ? (
-            <div className="h-44 rounded-2xl bg-muted animate-pulse flex items-center justify-center">
-              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+          <div className="mt-5 rounded-[1.75rem] bg-white/14 p-1 shadow-[0_14px_28px_rgba(0,0,0,0.16)] backdrop-blur">
+            <div className="relative flex items-center gap-2 rounded-[1.4rem] bg-white px-3 py-1.5">
+              <Search className="h-4.5 w-4.5 text-primary/70" />
+              <Input
+                placeholder="Buscar producto"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault()
+                    handleSearchSubmit()
+                  }
+                }}
+                className="h-11 border-none bg-transparent px-0 text-sm shadow-none focus-visible:ring-0"
+              />
+              <button
+                type="button"
+                onClick={handleSearchSubmit}
+                className="rounded-2xl bg-primary px-3.5 py-2 text-xs font-semibold text-primary-foreground shadow-sm"
+              >
+                Buscar
+              </button>
             </div>
-          ) : carousels.length > 0 ? (
-            <div className="space-y-4">
-              {carousels.map((carousel) => {
-                const flyers = carousel.flyers || []
-                const activeIdx = activeSlides.get(carousel.id) || 0
+          </div>
+        </section>
 
-                if (flyers.length === 0) return null
+        <section className="-mt-2 px-4">
+          <div className="grid grid-cols-1 gap-3">
+            <button
+              type="button"
+              onClick={() => onCatalogPresetNavigate("all")}
+              className="group flex items-center justify-between rounded-2xl border border-primary/20 bg-card px-4 py-3.5 text-left shadow-[0_8px_18px_rgba(15,23,42,0.08)] transition-all hover:border-primary/30 hover:shadow-[0_12px_24px_rgba(15,23,42,0.1)] active:scale-[0.99]"
+            >
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+                  <ShoppingBag className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-foreground">Hacer pedido</p>
+                  <p className="text-[11px] text-muted-foreground">Entrá al catálogo general.</p>
+                </div>
+              </div>
+              <span className="rounded-full bg-primary px-3 py-1.5 text-[11px] font-semibold text-primary-foreground">
+                Ir ahora
+              </span>
+            </button>
+          </div>
+        </section>
 
-                if (flyers.length === 1) {
-                  return (
+        {downloadFlyers.length > 0 && (
+          <section className="mt-5 px-4">
+            <div className="relative w-full overflow-hidden rounded-[1.35rem] bg-muted shadow-[0_12px_26px_rgba(15,23,42,0.12)] aspect-[16/7]">
+              <div
+                className="absolute inset-0 flex transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]"
+                style={{ transform: `translateX(-${downloadIndex * 100}%)` }}
+              >
+                {downloadFlyers.map((flyer) => (
+                  <button
+                    key={flyer.id}
+                    type="button"
+                    onClick={() => void handleDownloadFile(flyer)}
+                    className={`relative min-w-full ${flyer.archivoNombreOriginal || flyer.archivoRuta ? "cursor-pointer" : "cursor-default"}`}
+                    aria-label={flyer.archivoNombreOriginal || flyer.archivoRuta ? `Descargar archivo de ${flyer.titulo || "flyer"}` : flyer.titulo || "Flyer"}
+                  >
                     <img
-                      key={carousel.id}
-                      src={flyers[0].url}
-                      alt={flyers[0].titulo || carousel.nombre}
-                      className="w-full h-44 object-cover rounded-2xl shadow-md"
+                      src={flyer.url}
+                      alt={flyer.titulo || "Flyer"}
+                      className="h-full w-full object-cover"
                     />
-                  )
-                }
+                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/10 via-transparent to-transparent" />
+                  </button>
+                ))}
+              </div>
+            </div>
+            {downloadFlyers.length > 1 && (
+              <div className="mt-2.5 flex items-center justify-center gap-1.5">
+                {downloadFlyers.map((flyer, idx) => (
+                  <button
+                    key={`dot-${flyer.id}`}
+                    type="button"
+                    aria-label={`Ver flyer ${idx + 1}`}
+                    onClick={() => setDownloadIndex(idx)}
+                    className={`h-2.5 rounded-full transition-all ${idx === downloadIndex ? "w-6 bg-primary" : "w-2.5 bg-primary/35"}`}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+        )}
 
-                return (
-                  <div key={carousel.id}>
-                    <Carousel
-                      opts={{ loop: true }}
-                      setApi={(api) => onCarouselApi(carousel.id, api)}
-                      className="w-full"
-                    >
-                      <CarouselContent className="ml-0">
-                        {flyers.map((flyer) => (
-                          <CarouselItem key={flyer.id} className="pl-0">
-                            <img
-                              src={flyer.url}
-                              alt={flyer.titulo || carousel.nombre}
-                              className="w-full h-44 object-cover rounded-2xl"
-                            />
-                          </CarouselItem>
-                        ))}
-                      </CarouselContent>
-                    </Carousel>
-                    <div className="flex justify-center gap-1.5 mt-2">
-                      {flyers.map((_, idx) => (
-                        <button
-                          key={idx}
-                          onClick={() => carouselApis.get(carousel.id)?.scrollTo(idx)}
-                          className={`w-2 h-2 rounded-full transition-all ${
-                            idx === activeIdx
-                              ? "bg-primary w-4"
-                              : "bg-muted-foreground/30"
-                          }`}
+        <section className="mt-5 px-4">
+          <div className="mb-2.5">
+            <p className="text-base font-bold uppercase tracking-wide text-primary">Novedades</p>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2.5">
+            {tiles.map((tile) => {
+              const CategoryIcon = getCategoryIcon(tile.title)
+              return (
+                  <button
+                    key={tile.id}
+                    type="button"
+                    onClick={() => handleTileNavigate(tile.action)}
+                    className="relative aspect-square overflow-hidden rounded-[1.3rem] bg-card text-left shadow-[0_10px_22px_rgba(15,23,42,0.06)] transition-transform active:scale-[0.98]"
+                  >
+                    <div className="absolute inset-0 overflow-hidden rounded-[1.3rem] bg-muted leading-none">
+                      {tile.image ? (
+                        <img
+                          src={tile.image}
+                          alt={tile.title}
+                          className="absolute inset-[-1px] block h-[calc(100%+2px)] w-[calc(100%+2px)] object-cover"
                         />
-                      ))}
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center bg-primary/8 text-primary">
+                          <CategoryIcon className="h-7 w-7" />
+                        </div>
+                      )}
                     </div>
-                  </div>
+                  </button>
                 )
               })}
             </div>
-          ) : (
-            <Card className="border-0 shadow-sm overflow-hidden">
-              <div className="bg-gradient-to-br from-primary to-primary/80 p-5 rounded-2xl">
-                <h3 className="text-lg font-bold text-primary-foreground mb-1">Bienvenido a AFP Pinturas</h3>
-                <p className="text-sm text-primary-foreground/80">Encontrá todo lo que necesitás para tu obra</p>
-              </div>
-            </Card>
-          )}
-        </div>
+        </section>
+
+        <section className="mt-5 px-4">
+          <Card className="rounded-[1.7rem] border-none bg-card shadow-[0_12px_28px_rgba(15,23,42,0.06)]">
+            <CardContent className="p-4">
+              <button
+                type="button"
+                onClick={() => onNavigate("orders")}
+                className="flex w-full items-center gap-3 rounded-[1.3rem] border border-border/70 bg-[linear-gradient(135deg,white_0%,hsl(var(--accent)/0.35)_100%)] px-4 py-4 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] transition-transform active:scale-[0.99]"
+              >
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-sm">
+                  <ClipboardList className="h-5 w-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary/75">Mis actividades</p>
+                  <p className="mt-1 text-base font-bold text-foreground">Mis pedidos</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">Consultá estados, detalle y seguimiento de compras.</p>
+                </div>
+                <div className="rounded-full border border-primary/15 bg-white px-2.5 py-1 text-[11px] font-semibold text-primary">
+                  Ver
+                </div>
+              </button>
+            </CardContent>
+          </Card>
+        </section>
       </div>
     </div>
   )

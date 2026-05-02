@@ -1,5 +1,5 @@
 import { apiClient } from "./client"
-import { API_ENDPOINTS } from "../config/api"
+import { API_CONFIG, API_ENDPOINTS } from "../config/api"
 import type { Carrusel, Flyer, CreateCarruselPayload, UpdateCarruselPayload } from "../types"
 
 class CarouselService {
@@ -23,14 +23,44 @@ class CarouselService {
     return apiClient.delete<void>(API_ENDPOINTS.CAROUSEL.DELETE(id))
   }
 
-  async uploadFlyer(file: File, carruselId: number, titulo?: string): Promise<Flyer> {
+  async uploadFlyer(file: File, carruselId: number, titulo?: string, archivo?: File): Promise<Flyer> {
     const formData = new FormData()
     formData.append("file", file)
     formData.append("carruselId", String(carruselId))
     if (titulo) {
       formData.append("titulo", titulo)
     }
+    if (archivo) {
+      formData.append("archivo", archivo)
+    }
     return apiClient.upload<Flyer>(API_ENDPOINTS.FLYER.CREATE, formData)
+  }
+
+  getFlyerDownloadUrl(flyer: Pick<Flyer, "id">): string {
+    const path = API_ENDPOINTS.FLYER.DOWNLOAD(flyer.id)
+    return `${API_CONFIG.DOWNLOAD_BASE_URL}${path}`
+  }
+
+  async downloadFlyerFile(flyer: Pick<Flyer, "id" | "archivoNombreOriginal">): Promise<void> {
+    const response = await fetch(this.getFlyerDownloadUrl(flyer), {
+      method: "GET",
+      credentials: "include",
+    })
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => "")
+      throw new Error(text || "No se pudo descargar el archivo")
+    }
+
+    const blob = await response.blob()
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.href = url
+    link.download = flyer.archivoNombreOriginal || `flyer-${flyer.id}`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.URL.revokeObjectURL(url)
   }
 
   async getFlyers(): Promise<Flyer[]> {

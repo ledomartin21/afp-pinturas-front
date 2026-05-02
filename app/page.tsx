@@ -10,6 +10,7 @@ import { CheckoutScreen } from "@/components/checkout-screen"
 import { TransferPaymentScreen } from "@/components/transfer-payment-screen"
 import { OrdersScreen } from "@/components/orders-screen"
 import { OrderDetailScreen } from "@/components/order-detail-screen"
+import { OrderPdfScreen } from "@/components/order-pdf-screen"
 import { ProfileScreen } from "@/components/profile-screen"
 import { AdminCarouselScreen } from "@/components/admin-carousel-screen"
 import { SidebarMenu } from "@/components/sidebar-menu"
@@ -27,6 +28,7 @@ export type Screen =
   | "transfer-payment"
   | "orders"
   | "order-detail"
+  | "order-pdf"
   | "profile"
   | "admin-carousel"
 
@@ -34,12 +36,30 @@ export type Product = {
   id: string
   name: string
   price: number
+  promoPrice?: number
   stock: number
   image: string
   images?: string[]
   category: string
   brand?: string
   isPromo?: boolean
+  promotion?: {
+    id: number
+    nombre: string
+    descripcion?: string | null
+    tipo: "porcentaje" | "nxm" | "combo_fijo"
+    valor: number
+    cantidadLleva?: number | null
+    cantidadPaga?: number | null
+    comboProductoCodigoA?: string | null
+    comboProductoCodigoB?: string | null
+    comboPrecioFijo?: number | null
+    soloVisual: boolean
+    aplicaEnCheckout: boolean
+    prioridad: number
+    ambitoTipo: "producto" | "rubro" | "marca" | "combo"
+    precioPromocional?: number | null
+  }
   description?: string
 }
 
@@ -65,8 +85,15 @@ export type Order = {
   } | null
 }
 
+type CatalogNavigationState = {
+  category?: string
+  search?: string
+  preset?: "promotions" | "default"
+  token: number
+}
+
 export default function Home() {
-  const ADMIN_ROL_ID = 1
+  const ADMIN_ROLE_NAME = "administrador"
   const [currentScreen, setCurrentScreen] = useState<Screen>("login")
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [cart, setCart] = useState<CartItem[]>([])
@@ -77,13 +104,15 @@ export default function Home() {
   const [pendingTransferOrder, setPendingTransferOrder] = useState<CreatePedidoPayload | null>(null)
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [initialCategory, setInitialCategory] = useState<string | undefined>(undefined)
+  const [catalogNavigation, setCatalogNavigation] = useState<CatalogNavigationState | null>(null)
+  const [approvedReserveProducts, setApprovedReserveProducts] = useState<string[]>([])
 
   useEffect(() => {
     const bootstrapSession = async () => {
       const refreshed = await authService.refresh()
       if (!refreshed) {
         localStorage.removeItem("rolId")
+        localStorage.removeItem("rolNombre")
         localStorage.removeItem("usuarioId")
         setIsLoggedIn(false)
         setIsAdmin(false)
@@ -93,8 +122,9 @@ export default function Home() {
       }
 
       const rolId = Number(localStorage.getItem("rolId") || 0)
+      const rolNombre = (localStorage.getItem("rolNombre") || "").toLowerCase()
       setIsLoggedIn(true)
-      setIsAdmin(rolId === ADMIN_ROL_ID)
+      setIsAdmin(rolNombre ? rolNombre === ADMIN_ROLE_NAME : rolId === 1)
       setCurrentScreen("home")
       setIsBootstrappingSession(false)
     }
@@ -116,25 +146,37 @@ export default function Home() {
     return () => window.removeEventListener("popstate", handlePopState)
   }, [])
 
-  const handleLogin = (rolId: number, usuarioId: string | number) => {
+  const handleLogin = (rolId: number, usuarioId: string | number, rolNombre?: string) => {
     localStorage.setItem("rolId", String(rolId))
     localStorage.setItem("usuarioId", String(usuarioId))
+    if (rolNombre) {
+      localStorage.setItem("rolNombre", rolNombre)
+    } else {
+      localStorage.removeItem("rolNombre")
+    }
     setIsLoggedIn(true)
-    setIsAdmin(rolId === ADMIN_ROL_ID)
+    setIsAdmin((rolNombre || "").toLowerCase() === ADMIN_ROLE_NAME || (!rolNombre && rolId === 1))
     navigateToScreen("home")
   }
 
   const handleAddToCart = (product: Product, quantity = 1, discount = 0) => {
+    const effectiveDiscount =
+      discount > 0
+        ? discount
+        : product.promotion?.aplicaEnCheckout && product.promotion.tipo === "porcentaje"
+          ? product.promotion.valor
+          : 0
+
     setCart((prev) => {
       const existingItem = prev.find((item) => item.id === product.id)
       if (existingItem) {
         return prev.map((item) =>
           item.id === product.id
-            ? { ...item, quantity: item.quantity + quantity, discount: discount || item.discount }
+            ? { ...item, quantity: item.quantity + quantity, discount: effectiveDiscount || item.discount }
             : item,
         )
       }
-      return [...prev, { ...product, quantity, discount }]
+      return [...prev, { ...product, quantity, discount: effectiveDiscount }]
     })
   }
 
@@ -158,6 +200,22 @@ export default function Home() {
   const handleProductClick = (product: Product) => {
     setSelectedProduct(product)
     navigateToScreen("product-detail", product)
+  }
+
+  const isReserveApproved = (productId: string) => approvedReserveProducts.includes(productId)
+
+  const approveReserveForProduct = (productId: string) => {
+    setApprovedReserveProducts((prev) => (prev.includes(productId) ? prev : [...prev, productId]))
+  }
+
+  const openCatalog = (category?: string, search?: string, preset: "promotions" | "default" = "default") => {
+    setCatalogNavigation({
+      category,
+      search,
+      preset,
+      token: Date.now(),
+    })
+    navigateToScreen("catalog")
   }
 
   const handleCheckout = async (payload: CreatePedidoPayload) => {
@@ -198,9 +256,11 @@ export default function Home() {
   const handleLogout = () => {
     authService.logout()
     localStorage.removeItem("rolId")
+    localStorage.removeItem("rolNombre")
     localStorage.removeItem("usuarioId")
     setIsLoggedIn(false)
     setIsAdmin(false)
+    setApprovedReserveProducts([])
     navigateToScreen("login")
   }
 
@@ -222,6 +282,18 @@ export default function Home() {
         return (
           <HomeScreen
             onNavigate={navigateToScreen}
+            onSearchNavigate={(search) => openCatalog(undefined, search)}
+            onCatalogPresetNavigate={(preset) => {
+              if (preset === "promotions") {
+                openCatalog(undefined, undefined, "promotions")
+                return
+              }
+              if (preset === "afp") {
+                openCatalog(undefined, "AFP", "default")
+                return
+              }
+              openCatalog(undefined, undefined, "default")
+            }}
             onOpenMenu={() => setSidebarOpen(true)}
             cartCount={cart.reduce((sum, item) => sum + item.quantity, 0)}
           />
@@ -235,8 +307,12 @@ export default function Home() {
             cart={cart}
             onAddToCart={handleAddToCart}
             onUpdateQuantity={handleUpdateQuantity}
-            initialCategory={initialCategory}
-            onCategoryApplied={() => setInitialCategory(undefined)}
+            initialCategory={catalogNavigation?.category}
+            initialSearch={catalogNavigation?.search}
+            initialPreset={catalogNavigation?.preset}
+            navigationToken={catalogNavigation?.token}
+            isReserveApproved={isReserveApproved}
+            onApproveReserve={approveReserveForProduct}
           />
         )
       case "product-detail":
@@ -250,6 +326,8 @@ export default function Home() {
             onOpenMenu={() => setSidebarOpen(true)}
             cartCount={cart.reduce((sum, item) => sum + item.quantity, 0)}
             isAdmin={isAdmin}
+            isReserveApproved={isReserveApproved}
+            onApproveReserve={approveReserveForProduct}
           />
         )
       case "cart":
@@ -286,6 +364,10 @@ export default function Home() {
               setSelectedOrder(order)
               navigateToScreen("order-detail")
             }}
+            onOrderPdfClick={(order) => {
+              setSelectedOrder(order)
+              navigateToScreen("order-pdf")
+            }}
             onNavigate={navigateToScreen}
             onOpenMenu={() => setSidebarOpen(true)}
             cartCount={cart.reduce((sum, item) => sum + item.quantity, 0)}
@@ -293,6 +375,8 @@ export default function Home() {
         )
       case "order-detail":
         return <OrderDetailScreen order={selectedOrder} onBack={() => navigateToScreen("orders")} />
+      case "order-pdf":
+        return <OrderPdfScreen order={selectedOrder} onBack={() => navigateToScreen("orders")} />
       case "profile":
         return (
           <ProfileScreen
@@ -300,6 +384,7 @@ export default function Home() {
             onNavigate={navigateToScreen}
             onOpenMenu={() => setSidebarOpen(true)}
             cartCount={cart.reduce((sum, item) => sum + item.quantity, 0)}
+            isAdmin={isAdmin}
           />
         )
       case "admin-carousel":
@@ -325,10 +410,7 @@ export default function Home() {
           open={sidebarOpen}
           onOpenChange={setSidebarOpen}
           onNavigate={navigateToScreen}
-          onCategoryNavigate={(category) => {
-            setInitialCategory(category)
-            navigateToScreen("catalog")
-          }}
+          onCategoryNavigate={(category) => openCatalog(category)}
           onLogout={handleLogout}
         />
       )}

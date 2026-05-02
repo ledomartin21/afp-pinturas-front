@@ -1,6 +1,6 @@
 import { apiClient } from "./client"
 import { API_ENDPOINTS } from "../config/api"
-import type { Product } from "../types"
+import type { Product, PromotionSummary } from "../types"
 
 type ProductoApi = {
   id?: number
@@ -11,10 +11,18 @@ type ProductoApi = {
   rubroId?: number
   marcaId?: number
   urlImagen?: string
+  isPromo?: boolean
+  precioPromocional?: number
+  promocion?: PromotionSummary
 }
 
 type RubroApi = { id: number; nombre: string }
 type MarcaApi = { id: number; nombre: string }
+
+type CatalogsResult = {
+  rubroMap: Map<number, string>
+  marcaMap: Map<number, string>
+}
 
 export type ProductFilters = {
   category?: string
@@ -40,16 +48,28 @@ export type PaginatedProductsResult = {
   totalPages: number
 }
 
-export const productsService = {
-  async getCatalogs() {
-    const [rubros, marcas] = await Promise.all([
-      apiClient.get<RubroApi[]>("/rubro").catch(() => []),
-      apiClient.get<MarcaApi[]>("/marca").catch(() => []),
-    ])
+let catalogsCache: CatalogsResult | null = null
+let catalogsPromise: Promise<CatalogsResult> | null = null
+const productByCodeCache = new Map<string, Promise<Product>>()
 
-    const rubroMap = new Map(rubros.map((r) => [r.id, r.nombre]))
-    const marcaMap = new Map(marcas.map((m) => [m.id, m.nombre]))
-    return { rubroMap, marcaMap }
+export const productsService = {
+  async getCatalogs(forceRefresh = false) {
+    if (!forceRefresh && catalogsCache) {
+      return catalogsCache
+    }
+
+    if (!catalogsPromise || forceRefresh) {
+      catalogsPromise = Promise.all([
+        apiClient.get<RubroApi[]>("/rubro").catch(() => []),
+        apiClient.get<MarcaApi[]>("/marca").catch(() => []),
+      ]).then(([rubros, marcas]) => ({
+        rubroMap: new Map(rubros.map((r) => [r.id, r.nombre])),
+        marcaMap: new Map(marcas.map((m) => [m.id, m.nombre])),
+      }))
+    }
+
+    catalogsCache = await catalogsPromise
+    return catalogsCache
   },
 
   mapProducto(api: ProductoApi, rubroMap: Map<number, string>, marcaMap: Map<number, string>): Product {
@@ -60,11 +80,14 @@ export const productsService = {
       id: (api.codigo || String(api.id || "")).trim(),
       name: api.nombre || "Producto sin nombre",
       price: Number(api.precio || 0),
+      promoPrice: api.precioPromocional !== undefined ? Number(api.precioPromocional) : undefined,
       stock: Number(api.stock || 0),
       image: api.urlImagen || "/placeholder.svg",
       images: api.urlImagen ? [api.urlImagen] : [],
       category,
       brand,
+      isPromo: Boolean(api.isPromo),
+      promotion: api.promocion,
     }
   },
 
@@ -178,6 +201,27 @@ export const productsService = {
     ])
 
     return this.mapProducto(productoApi, catalogs.rubroMap, catalogs.marcaMap)
+  },
+
+  async getProductByCode(codigo: string): Promise<Product> {
+    const normalizedCode = codigo.trim()
+    const cached = productByCodeCache.get(normalizedCode)
+    if (cached) {
+      return cached
+    }
+
+    const request = Promise.all([
+      apiClient.get<ProductoApi>(API_ENDPOINTS.PRODUCTS.BY_CODE(encodeURIComponent(normalizedCode))),
+      this.getCatalogs(),
+    ])
+      .then(([productoApi, catalogs]) => this.mapProducto(productoApi, catalogs.rubroMap, catalogs.marcaMap))
+      .catch((error) => {
+        productByCodeCache.delete(normalizedCode)
+        throw error
+      })
+
+    productByCodeCache.set(normalizedCode, request)
+    return request
   },
 
   /**

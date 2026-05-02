@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { authService } from "@/lib/api"
 
 interface LoginScreenProps {
-  onLogin: (rolId: number, usuarioId: string | number) => void
+  onLogin: (rolId: number, usuarioId: string | number, rolNombre?: string) => void
 }
 
 export function LoginScreen({ onLogin }: LoginScreenProps) {
@@ -42,7 +42,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
       }
 
       const response = await authService.login({ nombreUsuario, contrasena })
-      onLogin(response.rolId, response.usuarioId)
+      onLogin(response.rolId, response.usuarioId, response.rolNombre)
     } catch {
       setErrorMessage("Credenciales inválidas o servidor no disponible")
     } finally {

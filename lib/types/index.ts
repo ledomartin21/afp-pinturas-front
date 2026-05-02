@@ -13,12 +13,32 @@ export type Product = {
   id: string
   name: string
   price: number
+  promoPrice?: number
   stock: number
   image: string
   category: string
   brand?: string
   isPromo?: boolean
+  promotion?: PromotionSummary
   description?: string
+}
+
+export type PromotionSummary = {
+  id: number
+  nombre: string
+  descripcion?: string | null
+  tipo: "porcentaje" | "nxm" | "combo_fijo"
+  valor: number
+  cantidadLleva?: number | null
+  cantidadPaga?: number | null
+  comboProductoCodigoA?: string | null
+  comboProductoCodigoB?: string | null
+  comboPrecioFijo?: number | null
+  soloVisual: boolean
+  aplicaEnCheckout: boolean
+  prioridad: number
+  ambitoTipo: "producto" | "rubro" | "marca" | "combo"
+  precioPromocional?: number | null
 }
 
 export type CartItem = Product & {
@@ -87,6 +107,7 @@ export type RegisterPayload = {
 export type LoginResponse = {
   usuarioId: string | number
   rolId: number
+  rolNombre?: string
 }
 
 // Carruseles y Flyers
@@ -95,6 +116,8 @@ export type Flyer = {
   titulo: string | null
   url: string
   publicId: string
+  archivoNombreOriginal?: string | null
+  archivoRuta?: string | null
   carruselId: number
   createdAt: string
 }
@@ -128,6 +151,8 @@ export type UserProfile = {
   mail: string
   telefono: string
   domicilio: string
+  provinciaId?: number
+  ciudadId?: number
   rolId: number
 }
 
@@ -136,4 +161,6 @@ export type UpdateProfilePayload = {
   mail?: string
   telefono?: string
   domicilio?: string
+  provinciaId?: number
+  ciudadId?: number
 }

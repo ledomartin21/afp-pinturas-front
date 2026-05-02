@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Minus, Plus, Trash2, ShoppingCart, Percent } from "lucide-react"
 import type { CartItem, Screen } from "@/app/page"
+import { calculateLinePricing } from "@/lib/promotion-pricing"
 
 interface CartScreenProps {
   items: CartItem[]
@@ -15,9 +16,20 @@ interface CartScreenProps {
 }
 
 export function CartScreen({ items, onUpdateQuantity, onCheckout, onBack, onNavigate }: CartScreenProps) {
-  const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0)
-  const totalDiscount = items.reduce((sum, item) => sum + (item.price * item.quantity * (item.discount || 0)) / 100, 0)
-  const total = subtotal - totalDiscount
+  const totals = items.reduce(
+    (acc, item) => {
+      const line = calculateLinePricing(item)
+      return {
+        subtotal: acc.subtotal + line.baseTotal,
+        totalDiscount: acc.totalDiscount + line.discountAmount,
+        total: acc.total + line.finalTotal,
+      }
+    },
+    { subtotal: 0, totalDiscount: 0, total: 0 },
+  )
+  const subtotal = totals.subtotal
+  const totalDiscount = totals.totalDiscount
+  const total = totals.total
 
   return (
     <div className="flex flex-col h-full">
@@ -49,8 +61,9 @@ export function CartScreen({ items, onUpdateQuantity, onCheckout, onBack, onNavi
         <>
           <div className="flex-1 overflow-auto p-4 space-y-3">
             {items.map((item) => {
-              const itemPrice = item.price * (1 - (item.discount || 0) / 100)
-              const itemTotal = itemPrice * item.quantity
+              const line = calculateLinePricing(item)
+              const itemPrice = line.unitPrice
+              const itemTotal = line.finalTotal
 
               return (
                 <Card key={item.id} className="border-2">
@@ -67,10 +80,15 @@ export function CartScreen({ items, onUpdateQuantity, onCheckout, onBack, onNavi
                           <p className="text-sm text-muted-foreground">{item.category}</p>
                         </div>
                         <div className="flex items-center gap-2">
-                          {item.discount && item.discount > 0 ? (
+                          {(item.discount && item.discount > 0) || line.discountAmount > 0 ? (
                             <div className="flex items-center gap-2">
                               <Badge className="bg-accent text-white text-xs">
-                                <Percent className="w-3 h-3 mr-1" />-{item.discount}%
+                                <Percent className="w-3 h-3 mr-1" />
+                                {item.promotion?.tipo === "nxm"
+                                  ? `${item.promotion.cantidadLleva}x${item.promotion.cantidadPaga}`
+                                  : item.promotion?.tipo === "combo_fijo"
+                                    ? "Combo"
+                                    : `-${(item.discount || line.effectiveDiscountPercent).toFixed(2)}%`}
                               </Badge>
                               <div>
                                 <p className="text-xs text-muted-foreground line-through">

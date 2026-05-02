@@ -27,6 +27,8 @@ import {
   Eye,
   EyeOff,
   Pencil,
+  Download,
+  FileText,
 } from "lucide-react"
 import { carouselService } from "@/lib/api"
 import type { Carrusel, Flyer } from "@/lib/types"
@@ -59,7 +61,10 @@ export function AdminCarouselScreen({ onBack }: AdminCarouselScreenProps) {
   // Upload
   const [isUploading, setIsUploading] = useState(false)
   const [flyerTitle, setFlyerTitle] = useState("")
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const imageInputRef = useRef<HTMLInputElement>(null)
+  const attachmentInputRef = useRef<HTMLInputElement>(null)
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null)
+  const [selectedAttachmentFile, setSelectedAttachmentFile] = useState<File | null>(null)
 
   // Delete confirmation
   const [deleteTarget, setDeleteTarget] = useState<{ type: "carousel" | "flyer"; id: number; name: string } | null>(null)
@@ -184,13 +189,25 @@ export function AdminCarouselScreen({ onBack }: AdminCarouselScreenProps) {
     }
   }
 
-  const handleUploadFlyer = async (file: File) => {
+  const handleUploadFlyer = async () => {
     if (!selectedCarousel) return
+    if (!selectedImageFile) {
+      setError("Selecciona una imagen para el flyer")
+      return
+    }
+
     try {
       setIsUploading(true)
       setError("")
-      await carouselService.uploadFlyer(file, selectedCarousel.id, flyerTitle.trim() || undefined)
+      await carouselService.uploadFlyer(
+        selectedImageFile,
+        selectedCarousel.id,
+        flyerTitle.trim() || undefined,
+        selectedAttachmentFile || undefined,
+      )
       setFlyerTitle("")
+      setSelectedImageFile(null)
+      setSelectedAttachmentFile(null)
       showSuccess("Flyer subido")
       await loadCarouselDetail(selectedCarousel.id)
     } catch {
@@ -200,16 +217,11 @@ export function AdminCarouselScreen({ onBack }: AdminCarouselScreenProps) {
     }
   }
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      handleUploadFlyer(file)
-    }
-    e.target.value = ""
-  }
-
   const openCarouselDetail = async (carousel: Carrusel) => {
     setView("detail")
+    setFlyerTitle("")
+    setSelectedImageFile(null)
+    setSelectedAttachmentFile(null)
     await loadCarouselDetail(carousel.id)
   }
 
@@ -499,36 +511,65 @@ export function AdminCarouselScreen({ onBack }: AdminCarouselScreenProps) {
                     className="h-10"
                   />
                 </div>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp,image/gif"
-                  onChange={handleFileChange}
-                  className="hidden"
-                />
-                <Button
-                  variant="outline"
-                  className="w-full h-11 border-green-300 text-green-700 hover:bg-green-50"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isUploading}
-                >
-                  {isUploading ? (
-                    <span className="flex items-center gap-2">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Subiendo...
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-2">
-                      <Upload className="w-4 h-4" />
-                      Seleccionar Imagen
-                    </span>
+                  <input
+                    ref={imageInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    onChange={(e) => setSelectedImageFile(e.target.files?.[0] || null)}
+                    className="hidden"
+                  />
+                  <input
+                    ref={attachmentInputRef}
+                    type="file"
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.txt,image/jpeg,image/png,image/webp"
+                    onChange={(e) => setSelectedAttachmentFile(e.target.files?.[0] || null)}
+                    className="hidden"
+                  />
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <Button
+                      variant="outline"
+                      className="w-full h-11 border-green-300 text-green-700 hover:bg-green-50"
+                      onClick={() => imageInputRef.current?.click()}
+                      disabled={isUploading}
+                    >
+                      <span className="flex items-center gap-2">
+                        <Upload className="w-4 h-4" />
+                        {selectedImageFile ? "Cambiar imagen" : "Seleccionar imagen"}
+                      </span>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="w-full h-11"
+                      onClick={() => attachmentInputRef.current?.click()}
+                      disabled={isUploading}
+                    >
+                      <span className="flex items-center gap-2">
+                        <FileText className="w-4 h-4" />
+                        {selectedAttachmentFile ? "Cambiar archivo" : "Archivo vinculado"}
+                      </span>
+                    </Button>
+                  </div>
+                  {(selectedImageFile || selectedAttachmentFile) && (
+                    <div className="rounded-lg border bg-muted/30 p-3 text-xs text-muted-foreground space-y-1">
+                      <p>{selectedImageFile ? `Imagen: ${selectedImageFile.name}` : "Imagen: pendiente"}</p>
+                      <p>{selectedAttachmentFile ? `Archivo: ${selectedAttachmentFile.name}` : "Archivo: opcional"}</p>
+                    </div>
                   )}
-                </Button>
-                <p className="text-[10px] text-muted-foreground">
-                  Formatos: JPEG, PNG, WebP, GIF. Max 10 MB.
-                </p>
-              </CardContent>
-            </Card>
+                  <Button className="w-full h-11" onClick={handleUploadFlyer} disabled={isUploading || !selectedImageFile}>
+                    {isUploading ? (
+                      <span className="flex items-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Subiendo...
+                      </span>
+                    ) : (
+                      "Subir flyer"
+                    )}
+                  </Button>
+                  <p className="text-[10px] text-muted-foreground">
+                    Imagen: JPEG, PNG, WebP o GIF (max 10 MB). Si cargas archivo, al tocar el flyer en la app se descarga (PDF, Office, ZIP, TXT o imagen, max 25 MB).
+                  </p>
+                </CardContent>
+              </Card>
 
             {/* Lista de flyers */}
             <div className="space-y-3">
@@ -545,11 +586,13 @@ export function AdminCarouselScreen({ onBack }: AdminCarouselScreenProps) {
                   {selectedCarousel.flyers.map((flyer) => (
                     <Card key={flyer.id} className="border overflow-hidden">
                       <div className="relative">
-                        <img
-                          src={flyer.url}
-                          alt={flyer.titulo || "Flyer"}
-                          className="w-full aspect-video object-cover"
-                        />
+                        <button type="button" className="block w-full" onClick={() => flyer.archivoRuta && carouselService.downloadFlyerFile(flyer).catch(() => setError("No se pudo descargar el archivo"))}>
+                          <img
+                            src={flyer.url}
+                            alt={flyer.titulo || "Flyer"}
+                            className="w-full aspect-video object-cover"
+                          />
+                        </button>
                         <button
                           onClick={() =>
                             setDeleteTarget({
@@ -567,6 +610,18 @@ export function AdminCarouselScreen({ onBack }: AdminCarouselScreenProps) {
                         <p className="text-xs font-medium truncate">
                           {flyer.titulo || `Flyer #${flyer.id}`}
                         </p>
+                        {flyer.archivoRuta ? (
+                          <button
+                            type="button"
+                            onClick={() => carouselService.downloadFlyerFile(flyer).catch(() => setError("No se pudo descargar el archivo"))}
+                            className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-primary"
+                          >
+                            <Download className="h-3.5 w-3.5" />
+                            Descargar archivo
+                          </button>
+                        ) : (
+                          <p className="mt-2 text-[11px] text-muted-foreground">Sin archivo asociado</p>
+                        )}
                       </CardContent>
                     </Card>
                   ))}

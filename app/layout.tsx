@@ -2,6 +2,7 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
+import { PwaRegister } from "@/components/pwa-register"
 import "./globals.css"
 
 const _geist = Geist({ subsets: ["latin"] })
@@ -11,6 +12,12 @@ export const metadata: Metadata = {
   title: "Ferretería App",
   description: "Tu ferretería favorita, siempre a mano",
   generator: "v0.app",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    title: "AFP Pinturas",
+    statusBarStyle: "default",
+  },
   icons: {
     icon: [
       {
@@ -39,6 +46,7 @@ export default function RootLayout({
     <html lang="es">
       <body className={`font-sans antialiased`}>
         {children}
+        <PwaRegister />
         <Analytics />
       </body>
     </html>

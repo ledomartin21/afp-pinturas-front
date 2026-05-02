@@ -1,5 +1,6 @@
 export const API_CONFIG = {
   BASE_URL: "/api",
+  DOWNLOAD_BASE_URL: process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") || "http://localhost:3002",
   TIMEOUT: 30000,
   HEADERS: {
     "Content-Type": "application/json",
@@ -20,6 +21,7 @@ export const API_ENDPOINTS = {
     LIST: "/producto",
     PAGINATED: "/producto/paginado",
     DETAIL: (id: string) => `/producto/${id}`,
+    BY_CODE: (codigo: string) => `/producto/codigo/${codigo}`,
     SEARCH: "/producto",
     BY_CATEGORY: (_category: string) => `/producto`,
     BY_BRAND: (_brand: string) => `/producto`,
@@ -56,5 +58,6 @@ export const API_ENDPOINTS = {
     DETAIL: (id: number) => `/flyer/${id}`,
     CREATE: "/flyer",
     DELETE: (id: number) => `/flyer/${id}`,
+    DOWNLOAD: (id: number) => `/flyer/${id}/download`,
   },
 };

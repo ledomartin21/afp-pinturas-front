@@ -74,6 +74,23 @@ const PAYMENT_STATUS_MAP: Record<string, NonNullable<Order["paymentStatus"]>> = 
   rejected: "rejected",
 }
 
+async function loadProductsForOrderResponses(pedidos: PedidoResponse[]) {
+  const productIds = Array.from(
+    new Set(
+      pedidos
+        .flatMap((pedido) => pedido.detalles || [])
+        .map((detalle) => detalle.productoId.trim())
+        .filter(Boolean),
+    ),
+  )
+
+  const products = await Promise.all(
+    productIds.map((id) => productsService.getProductByCode(id).catch(() => null)),
+  )
+
+  return new Map(products.filter((product): product is NonNullable<typeof product> => Boolean(product)).map((product) => [product.id.trim(), product]))
+}
+
 function mapPedidoToOrder(
   pedido: PedidoResponse,
   productsById: Map<string, Awaited<ReturnType<typeof productsService.getProducts>>[number]>,
@@ -124,12 +141,8 @@ export const ordersService = {
    */
   async getOrders(): Promise<Order[]> {
     try {
-      const [pedidos, productos] = await Promise.all([
-        apiClient.get<PedidoResponse[]>(API_ENDPOINTS.ORDERS.LIST),
-        productsService.getProducts().catch(() => []),
-      ])
-
-      const productsById = new Map(productos.map((p) => [p.id.trim(), p]))
+      const pedidos = await apiClient.get<PedidoResponse[]>(API_ENDPOINTS.ORDERS.LIST)
+      const productsById = await loadProductsForOrderResponses(pedidos)
 
       return pedidos.map((pedido) => mapPedidoToOrder(pedido, productsById))
     } catch (error) {
@@ -142,11 +155,8 @@ export const ordersService = {
    * Obtiene el detalle de un pedido
    */
   async getOrderById(id: string): Promise<Order> {
-    const [pedido, productos] = await Promise.all([
-      apiClient.get<PedidoResponse>(API_ENDPOINTS.ORDERS.DETAIL(id)),
-      productsService.getProducts().catch(() => []),
-    ])
-    const productsById = new Map(productos.map((p) => [p.id.trim(), p]))
+    const pedido = await apiClient.get<PedidoResponse>(API_ENDPOINTS.ORDERS.DETAIL(id))
+    const productsById = await loadProductsForOrderResponses([pedido])
     return mapPedidoToOrder(pedido, productsById)
   },
 

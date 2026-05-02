@@ -5,8 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { User, MapPin, LogOut, ShieldCheck, Loader2, Menu, ShoppingCart } from "lucide-react"
-import { userService } from "@/lib/api"
+import { ApiError, locationService, userService } from "@/lib/api"
 import type { UserProfile } from "@/lib/types"
 import type { Screen } from "@/app/page"
 
@@ -15,9 +16,10 @@ interface ProfileScreenProps {
   onNavigate: (screen: Screen) => void
   onOpenMenu: () => void
   cartCount: number
+  isAdmin: boolean
 }
 
-export function ProfileScreen({ onLogout, onNavigate, onOpenMenu, cartCount }: ProfileScreenProps) {
+export function ProfileScreen({ onLogout, onNavigate, onOpenMenu, cartCount, isAdmin }: ProfileScreenProps) {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
@@ -29,32 +31,43 @@ export function ProfileScreen({ onLogout, onNavigate, onOpenMenu, cartCount }: P
   const [mail, setMail] = useState("")
   const [telefono, setTelefono] = useState("")
   const [address, setAddress] = useState("")
-  const [city, setCity] = useState("")
+  const [cityId, setCityId] = useState("")
   const [postalCode, setPostalCode] = useState("")
-  const [province, setProvince] = useState("")
+  const [provinceId, setProvinceId] = useState("")
+  const [provinces, setProvinces] = useState<Array<{ id: number; nombre: string }>>([])
+  const [cities, setCities] = useState<Array<{ id: number; nombre: string }>>([])
 
   useEffect(() => {
     const loadProfile = async () => {
       try {
         setIsLoading(true)
-        const data = await userService.getProfile()
+        const [data, provinceOptions] = await Promise.all([
+          userService.getProfile(),
+          locationService.getProvinces().catch(() => []),
+        ])
         setProfile(data)
+        setProvinces(provinceOptions)
         setRazonSocial(data.razonSocial || "")
         setMail(data.mail || "")
         setTelefono(data.telefono || "")
-        // El backend almacena la dirección en un solo campo "domicilio".
-        // Para igualar el formulario del checkout (4 campos separados),
-        // se parsea como: "calle, ciudad, cp, provincia" al cargar
-        // y se concatena con comas al guardar (ver handleSave).
         if (data.domicilio) {
           const parts = data.domicilio.split(",").map((p) => p.trim())
           setAddress(parts[0] || "")
-          setCity(parts[1] || "")
-          setPostalCode(parts[2] || "")
-          setProvince(parts[3] || "")
+          setPostalCode(parts.length >= 4 ? (parts[2] || "") : (parts[1] || ""))
         }
-      } catch {
-        setErrorMessage("No se pudo cargar el perfil")
+        setProvinceId(data.provinciaId ? String(data.provinciaId) : "")
+        setCityId(data.ciudadId ? String(data.ciudadId) : "")
+      } catch (error) {
+        setProfile(null)
+        if (error instanceof ApiError) {
+          setErrorMessage(
+            error.status === 401
+              ? "Tu sesion vencio. Volve a iniciar sesion para ver tu perfil."
+              : error.message || "No se pudo cargar el perfil",
+          )
+        } else {
+          setErrorMessage("No se pudo cargar el perfil")
+        }
       } finally {
         setIsLoading(false)
       }
@@ -63,23 +76,45 @@ export function ProfileScreen({ onLogout, onNavigate, onOpenMenu, cartCount }: P
     loadProfile()
   }, [])
 
+  useEffect(() => {
+    if (!provinceId) {
+      setCities([])
+      setCityId("")
+      return
+    }
+
+    const loadCities = async () => {
+      const options = await locationService.getCitiesForProvince(Number(provinceId)).catch(() => [])
+      setCities(options)
+      setCityId((current) => (options.some((option) => String(option.id) === current) ? current : ""))
+    }
+
+    loadCities()
+  }, [provinceId])
+
   const handleSave = async () => {
     try {
       setIsSaving(true)
       setErrorMessage("")
       setSuccessMessage("")
-      const domicilio = [address, city, postalCode, province].filter(Boolean).join(", ")
+      const domicilio = [address, postalCode].filter(Boolean).join(", ")
       const updated = await userService.updateProfile({
         razonSocial,
         mail,
         telefono,
         domicilio,
+        provinciaId: provinceId ? Number(provinceId) : undefined,
+        ciudadId: cityId ? Number(cityId) : undefined,
       })
       setProfile(updated)
       setSuccessMessage("Perfil actualizado correctamente")
       setTimeout(() => setSuccessMessage(""), 3000)
-    } catch {
-      setErrorMessage("No se pudo guardar los cambios")
+    } catch (error) {
+      if (error instanceof ApiError) {
+        setErrorMessage(error.message || "No se pudieron guardar los cambios")
+      } else {
+        setErrorMessage("No se pudieron guardar los cambios")
+      }
     } finally {
       setIsSaving(false)
     }
@@ -228,20 +263,38 @@ export function ProfileScreen({ onLogout, onNavigate, onOpenMenu, cartCount }: P
                 <Label htmlFor="profile-address" className="text-xs">Dirección</Label>
                 <Input id="profile-address" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Ingresa tu dirección" className="h-11" />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="profile-city" className="text-xs">Ciudad</Label>
-                  <Input id="profile-city" value={city} onChange={(e) => setCity(e.target.value)} placeholder="Ciudad" className="h-11" />
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="profile-city" className="text-xs">Ciudad</Label>
+                    <Select value={cityId} onValueChange={setCityId} disabled={!provinceId}>
+                      <SelectTrigger id="profile-city" className="h-11">
+                        <SelectValue placeholder={provinceId ? "Selecciona ciudad" : "Elegí provincia"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {cities.map((city) => (
+                          <SelectItem key={city.id} value={String(city.id)}>{city.nombre}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="profile-postal" className="text-xs">C.P.</Label>
+                    <Input id="profile-postal" value={postalCode} onChange={(e) => setPostalCode(e.target.value)} placeholder="Código Postal" className="h-11" />
+                  </div>
                 </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="profile-postal" className="text-xs">C.P.</Label>
-                  <Input id="profile-postal" value={postalCode} onChange={(e) => setPostalCode(e.target.value)} placeholder="Código Postal" className="h-11" />
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="profile-province" className="text-xs">Provincia</Label>
-                <Input id="profile-province" value={province} onChange={(e) => setProvince(e.target.value)} placeholder="Provincia" className="h-11" />
-              </div>
+               <div className="space-y-1.5">
+                 <Label htmlFor="profile-province" className="text-xs">Provincia</Label>
+                 <Select value={provinceId} onValueChange={setProvinceId}>
+                   <SelectTrigger id="profile-province" className="h-11">
+                     <SelectValue placeholder="Selecciona provincia" />
+                   </SelectTrigger>
+                   <SelectContent>
+                     {provinces.map((province) => (
+                       <SelectItem key={province.id} value={String(province.id)}>{province.nombre}</SelectItem>
+                     ))}
+                   </SelectContent>
+                 </Select>
+               </div>
               <Button
                 variant="outline"
                 className="w-full h-11 border-primary/30 text-primary hover:bg-primary/10 font-semibold text-sm"
@@ -261,6 +314,16 @@ export function ProfileScreen({ onLogout, onNavigate, onOpenMenu, cartCount }: P
           </Card>
 
           {/* Cerrar sesion */}
+          {isAdmin && (
+            <Button
+              variant="outline"
+              className="w-full h-11 border-primary/30 text-primary hover:bg-primary/10 font-semibold text-sm"
+              onClick={() => onNavigate("admin-carousel")}
+            >
+              Gestionar Novedades
+            </Button>
+          )}
+
           <Button
             variant="outline"
             className="w-full h-13 text-base font-semibold border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"

@@ -12,12 +12,54 @@ export class ApiError extends Error {
 }
 
 async function handleResponse<T>(response: Response): Promise<T> {
+  if (response.status === 204) {
+    return undefined as T
+  }
+
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: "Error desconocido" }))
-    throw new ApiError(error.message || "Error en la petición", response.status, error)
+    const error = await parseErrorResponse(response)
+    throw new ApiError(error.message, response.status, error.data)
   }
 
   return response.json()
+}
+
+async function parseErrorResponse(response: Response): Promise<{ message: string; data?: unknown }> {
+  const contentType = response.headers.get("content-type") || ""
+
+  if (contentType.includes("application/json")) {
+    const data = await response.json().catch(() => undefined)
+    return {
+      message: extractErrorMessage(data) || "Error en la petición",
+      data,
+    }
+  }
+
+  const text = await response.text().catch(() => "")
+  return {
+    message: text || "Error en la petición",
+    data: text,
+  }
+}
+
+function extractErrorMessage(data: unknown): string | null {
+  if (!data) return null
+
+  if (typeof data === "string") {
+    return data
+  }
+
+  if (typeof data === "object") {
+    const maybeMessage = (data as { message?: string | string[] }).message
+    if (Array.isArray(maybeMessage)) {
+      return maybeMessage.join(". ")
+    }
+    if (typeof maybeMessage === "string") {
+      return maybeMessage
+    }
+  }
+
+  return null
 }
 
 async function refreshAccessToken(): Promise<boolean> {

@@ -9,6 +9,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { ArrowLeft, MapPin, Truck, Store, Banknote } from "lucide-react"
 import type { CartItem } from "@/app/page"
 import type { CreatePedidoPayload } from "@/lib/api/orders.service"
+import { calculateLinePricing } from "@/lib/promotion-pricing"
 
 interface CheckoutScreenProps {
   items: CartItem[]
@@ -20,26 +21,20 @@ interface CheckoutScreenProps {
 export function CheckoutScreen({ items, onConfirm, onTransferPayment, onBack }: CheckoutScreenProps) {
   const [deliveryMethod, setDeliveryMethod] = useState<"delivery" | "pickup">("delivery")
   const [paymentMethod, setPaymentMethod] = useState<"transfer" | "cash">("transfer")
-  const [address, setAddress] = useState("Av. Corrientes 1234, CABA")
-  const [city, setCity] = useState("CABA")
-  const [postalCode, setPostalCode] = useState("1000")
-  const [province, setProvince] = useState("Buenos Aires")
+  const [address, setAddress] = useState("")
+  const [city, setCity] = useState("")
+  const [postalCode, setPostalCode] = useState("")
+  const [province, setProvince] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errorMessage, setErrorMessage] = useState("")
 
-  const subtotal = items.reduce((sum, item) => {
-    const price = item.price * (1 - (item.discount || 0) / 100)
-    return sum + price * item.quantity
-  }, 0)
+  const subtotal = items.reduce((sum, item) => sum + calculateLinePricing(item).finalTotal, 0)
   const deliveryFee = deliveryMethod === "delivery" ? 2500 : 0
   const total = subtotal + deliveryFee
 
   const buildPayload = (): CreatePedidoPayload => {
-    const grossSubtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0)
-    const discountTotal = items.reduce(
-      (sum, item) => sum + (item.price * item.quantity * (item.discount || 0)) / 100,
-      0,
-    )
+    const grossSubtotal = items.reduce((sum, item) => sum + calculateLinePricing(item).baseTotal, 0)
+    const discountTotal = items.reduce((sum, item) => sum + calculateLinePricing(item).discountAmount, 0)
 
     const payload: CreatePedidoPayload = {
       metodoEntrega: deliveryMethod,
@@ -48,11 +43,14 @@ export function CheckoutScreen({ items, onConfirm, onTransferPayment, onBack }: 
       descuentoTotal: discountTotal,
       costoEnvio: deliveryFee,
       total,
-      detalles: items.map((item) => ({
-        productoId: item.id,
-        cantidad: item.quantity,
-        descuentoPorcentaje: item.discount || 0,
-      })),
+      detalles: items.map((item) => {
+        const pricing = calculateLinePricing(item)
+        return {
+          productoId: item.id,
+          cantidad: item.quantity,
+          descuentoPorcentaje: Number(pricing.effectiveDiscountPercent.toFixed(2)),
+        }
+      }),
     }
 
     if (deliveryMethod === "delivery") {
@@ -232,7 +230,8 @@ export function CheckoutScreen({ items, onConfirm, onTransferPayment, onBack }: 
             <h2 className="font-semibold text-lg">Resumen del Pedido</h2>
             <div className="space-y-2">
               {items.map((item) => {
-                const itemPrice = item.price * (1 - (item.discount || 0) / 100)
+                const pricing = calculateLinePricing(item)
+                const itemPrice = pricing.unitPrice
                 return (
                   <div key={item.id} className="flex justify-between text-sm">
                     <span className="text-muted-foreground">

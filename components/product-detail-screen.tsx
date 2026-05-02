@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,9 +27,12 @@ interface ProductDetailScreenProps {
   onOpenMenu: () => void
   cartCount: number
   isAdmin: boolean
+  isReserveApproved: (productId: string) => boolean
+  onApproveReserve: (productId: string) => void
 }
 
-export function ProductDetailScreen({ product, onAddToCart, onBack, onProductClick, onNavigate, onOpenMenu, cartCount, isAdmin }: ProductDetailScreenProps) {
+export function ProductDetailScreen({ product, onAddToCart, onBack, onProductClick, onNavigate, onOpenMenu, cartCount, isAdmin, isReserveApproved, onApproveReserve }: ProductDetailScreenProps) {
+  const ADMIN_DISCOUNT_OPTIONS = [10, 15, 20] as const
   const [quantity, setQuantity] = useState(1)
   const [showFeedback, setShowFeedback] = useState(false)
   const [showReserveDialog, setShowReserveDialog] = useState(false)
@@ -42,12 +44,17 @@ export function ProductDetailScreen({ product, onAddToCart, onBack, onProductCli
   const [galleryImages, setGalleryImages] = useState<string[]>([])
   const [galleryLoading, setGalleryLoading] = useState(false)
   const [activeImageIndex, setActiveImageIndex] = useState(0)
+  const [comboPartnerLabel, setComboPartnerLabel] = useState<string | null>(null)
+  const [comboPartnerImage, setComboPartnerImage] = useState<string | null>(null)
+  const [comboPartnerProduct, setComboPartnerProduct] = useState<Product | null>(null)
+  const [showComboChoiceDialog, setShowComboChoiceDialog] = useState(false)
+  const [feedbackMessage, setFeedbackMessage] = useState("Producto agregado al carrito")
 
   // Scroll al tope cuando cambia el producto
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: 0, behavior: "instant" })
     setQuantity(1)
-    setDiscount(0)
+    setDiscount(product?.promotion?.aplicaEnCheckout && product.promotion.tipo === "porcentaje" ? product.promotion.valor : 0)
     setShowFeedback(false)
     setShowReserveConfirm(false)
     setActiveImageIndex(0)
@@ -98,6 +105,52 @@ export function ProductDetailScreen({ product, onAddToCart, onBack, onProductCli
     loadRelated()
   }, [product?.id, product?.category])
 
+  useEffect(() => {
+    if (!product || product.promotion?.tipo !== "combo_fijo") {
+      setComboPartnerLabel(null)
+      setComboPartnerImage(null)
+      setComboPartnerProduct(null)
+      return
+    }
+
+    const currentCode = product.id.trim()
+    const codeA = (product.promotion.comboProductoCodigoA || "").trim()
+    const codeB = (product.promotion.comboProductoCodigoB || "").trim()
+
+    const partnerCode = currentCode === codeA ? codeB : currentCode === codeB ? codeA : codeA || codeB
+    if (!partnerCode) {
+      setComboPartnerLabel(null)
+      setComboPartnerImage(null)
+      setComboPartnerProduct(null)
+      return
+    }
+
+    let cancelled = false
+
+    const loadPartner = async () => {
+      try {
+        const partner = await productsService.getProductByCode(partnerCode)
+        if (!cancelled) {
+          setComboPartnerLabel(partner.name || partnerCode)
+          setComboPartnerImage(partner.image || "/placeholder.svg")
+          setComboPartnerProduct(partner)
+        }
+      } catch {
+        if (!cancelled) {
+          setComboPartnerLabel(partnerCode)
+          setComboPartnerImage("/placeholder.svg")
+          setComboPartnerProduct(null)
+        }
+      }
+    }
+
+    void loadPartner()
+
+    return () => {
+      cancelled = true
+    }
+  }, [product?.id, product?.promotion?.tipo, product?.promotion?.comboProductoCodigoA, product?.promotion?.comboProductoCodigoB])
+
   if (!product) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -108,23 +161,67 @@ export function ProductDetailScreen({ product, onAddToCart, onBack, onProductCli
 
   const isOutOfStock = product.stock === 0
   const exceedsStock = quantity > product.stock && product.stock > 0
+  const displayPrice = discount > 0 ? product.price * (1 - discount / 100) : product.price
 
   const handleAddToCart = () => {
+    const approved = isReserveApproved(product.id)
+
     if (isOutOfStock) {
+      if (approved) {
+        onAddToCart(product, quantity, discount)
+        setFeedbackMessage("Producto agregado al carrito")
+        setShowFeedback(true)
+        setTimeout(() => setShowFeedback(false), 2000)
+        return
+      }
       setShowReserveDialog(true)
       return
     }
     if (exceedsStock) {
+      if (approved) {
+        onAddToCart(product, quantity, discount)
+        setFeedbackMessage("Producto agregado al carrito")
+        setShowFeedback(true)
+        setTimeout(() => setShowFeedback(false), 2000)
+        return
+      }
       setShowReserveDialog(true)
       return
     }
+
+    if (product.promotion?.tipo === "combo_fijo") {
+      setShowComboChoiceDialog(true)
+      return
+    }
+
     onAddToCart(product, quantity, discount)
+    setFeedbackMessage("Producto agregado al carrito")
+    setShowFeedback(true)
+    setTimeout(() => setShowFeedback(false), 2000)
+  }
+
+  const handleAddProductOnly = () => {
+    onAddToCart(product, quantity, discount)
+    setShowComboChoiceDialog(false)
+    setFeedbackMessage("Producto agregado al carrito")
+    setShowFeedback(true)
+    setTimeout(() => setShowFeedback(false), 2000)
+  }
+
+  const handleAddCombo = () => {
+    onAddToCart(product, quantity, 0)
+    if (comboPartnerProduct) {
+      onAddToCart(comboPartnerProduct, quantity, 0)
+    }
+    setShowComboChoiceDialog(false)
+    setFeedbackMessage(comboPartnerProduct ? "Combo agregado al carrito" : "Producto agregado al carrito")
     setShowFeedback(true)
     setTimeout(() => setShowFeedback(false), 2000)
   }
 
   const handleReserve = () => {
     setShowReserveDialog(false)
+    onApproveReserve(product.id)
     onAddToCart(product, quantity, discount)
     setShowReserveConfirm(true)
     setTimeout(() => setShowReserveConfirm(false), 3000)
@@ -273,7 +370,7 @@ export function ProductDetailScreen({ product, onAddToCart, onBack, onProductCli
                         ${product.price.toLocaleString("es-AR")}
                       </p>
                       <p className="text-2xl font-bold">
-                        ${discountedPrice.toLocaleString("es-AR")}
+                        ${displayPrice.toLocaleString("es-AR")}
                       </p>
                       <Badge className="mt-1 bg-accent text-accent-foreground font-bold">-{discount}%</Badge>
                     </div>
@@ -290,6 +387,32 @@ export function ProductDetailScreen({ product, onAddToCart, onBack, onProductCli
               </div>
             </CardContent>
           </Card>
+
+          {product.promotion?.tipo === "combo_fijo" && (
+            <Card className="border border-amber-200 bg-amber-50/70 shadow-sm">
+              <CardContent className="p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Promocion combo</p>
+                <div className="mt-2 flex items-center gap-2">
+                  <img
+                    src={product.image || "/placeholder.svg"}
+                    alt={product.name}
+                    className="h-9 w-9 rounded-md border border-amber-200 bg-white object-cover"
+                  />
+                  <span className="text-sm font-bold text-amber-800">+</span>
+                  <img
+                    src={comboPartnerImage || "/placeholder.svg"}
+                    alt={comboPartnerLabel || "Producto combo"}
+                    className="h-9 w-9 rounded-md border border-amber-200 bg-white object-cover"
+                  />
+                </div>
+                <p className="mt-1 text-sm text-amber-900">
+                  Incluye 2 productos: {product.name}
+                  {comboPartnerLabel ? ` + ${comboPartnerLabel}` : ""}.
+                  Precio final del combo: ${Number(product.promotion.comboPrecioFijo || 0).toLocaleString("es-AR")}
+                </p>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Descripcion */}
           <div className="space-y-2">
@@ -310,17 +433,35 @@ export function ProductDetailScreen({ product, onAddToCart, onBack, onProductCli
                   </div>
                   <h3 className="font-semibold text-sm">Descuento Administrativo</h3>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={discount}
-                    onChange={(e) => setDiscount(Math.min(100, Math.max(0, Number(e.target.value))))}
-                    className="h-11"
-                    placeholder="0"
-                  />
-                  <span className="text-xl font-bold">%</span>
+                {product.promotion?.aplicaEnCheckout && (
+                  <p className="text-xs text-muted-foreground">
+                    {product.promotion.tipo === "combo_fijo"
+                      ? "La promo combo es informativa y no se aplica como descuento porcentual en este item."
+                      : "La promocion activa ya viene precargada y podes ajustarla manualmente para este pedido."}
+                  </p>
+                )}
+                <div className="grid grid-cols-4 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setDiscount(0)}
+                    className={`rounded-xl border px-3 py-2 text-sm font-semibold transition-colors ${
+                      discount === 0 ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-foreground"
+                    }`}
+                  >
+                    Sin desc.
+                  </button>
+                  {ADMIN_DISCOUNT_OPTIONS.map((option) => (
+                    <button
+                      key={option}
+                      type="button"
+                      onClick={() => setDiscount(option)}
+                      className={`rounded-xl border px-3 py-2 text-sm font-semibold transition-colors ${
+                        discount === option ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-foreground"
+                      }`}
+                    >
+                      {option}%
+                    </button>
+                  ))}
                 </div>
               </CardContent>
             </Card>
@@ -435,7 +576,7 @@ export function ProductDetailScreen({ product, onAddToCart, onBack, onProductCli
         </Button>
         {showFeedback && (
           <div className="text-center text-sm font-medium text-primary animate-in fade-in slide-in-from-bottom-2">
-            Producto agregado al carrito
+            {feedbackMessage}
           </div>
         )}
         {showReserveConfirm && (
@@ -467,6 +608,27 @@ export function ProductDetailScreen({ product, onAddToCart, onBack, onProductCli
             >
               Si, reservar
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showComboChoiceDialog} onOpenChange={setShowComboChoiceDialog}>
+        <AlertDialogContent className="max-w-[90vw] rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Este producto tiene promo combo</AlertDialogTitle>
+            <AlertDialogDescription className="text-sm leading-relaxed">
+              Podés llevar solo {product.name} o aprovechar el combo con
+              {comboPartnerLabel ? ` ${comboPartnerLabel}` : " el segundo producto"}.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col gap-2 sm:flex-col">
+            <AlertDialogAction onClick={handleAddCombo} className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
+              Llevar combo
+            </AlertDialogAction>
+            <AlertDialogAction onClick={handleAddProductOnly} className="w-full border border-border bg-card text-foreground hover:bg-muted">
+              Llevar solo este producto
+            </AlertDialogAction>
+            <AlertDialogCancel className="mt-0 w-full">Cancelar</AlertDialogCancel>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

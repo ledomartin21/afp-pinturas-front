@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Package, Clock, Truck, CheckCircle, Loader2, ChevronRight, Menu, ShoppingCart } from "lucide-react"
+import { Package, Clock, Truck, CheckCircle, Loader2, ChevronRight, Menu, ShoppingCart, Eye } from "lucide-react"
 import type { Order, Screen } from "@/app/page"
 import { ordersService } from "@/lib/api"
 
@@ -16,12 +16,13 @@ const STATUS_CONFIG = {
 
 interface OrdersScreenProps {
   onOrderClick: (order: Order) => void
+  onOrderPdfClick: (order: Order) => void
   onNavigate: (screen: Screen) => void
   onOpenMenu: () => void
   cartCount: number
 }
 
-export function OrdersScreen({ onOrderClick, onNavigate, onOpenMenu, cartCount }: OrdersScreenProps) {
+export function OrdersScreen({ onOrderClick, onOrderPdfClick, onNavigate, onOpenMenu, cartCount }: OrdersScreenProps) {
   const [isLoading, setIsLoading] = useState(true)
   const [expanded, setExpanded] = useState<string | null>(null)
   const [orders, setOrders] = useState<Order[]>([])
@@ -119,6 +120,17 @@ export function OrdersScreen({ onOrderClick, onNavigate, onOpenMenu, cartCount }
                         <p className="font-bold text-sm shrink-0">${order.total.toLocaleString("es-AR")}</p>
                       </div>
                     </div>
+                    <button
+                      type="button"
+                      aria-label={`Ver nota de pedido ${order.id}`}
+                      className="flex h-8 w-8 items-center justify-center rounded-full border border-border/70 bg-card text-muted-foreground transition-colors hover:text-primary"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onOrderPdfClick(order)
+                      }}
+                    >
+                      <Eye className="h-4 w-4" />
+                    </button>
                     <ChevronRight className={`w-4 h-4 text-muted-foreground shrink-0 transition-transform ${isExpanded ? "rotate-90" : ""}`} />
                   </div>
 
