@@ -42,7 +42,7 @@ Aplicacion web mobile-first orientada a clientes mayoristas de AFP Pinturas. Per
 
 - **Node.js** >= 18
 - **npm** >= 9
-- Backend corriendo en `http://localhost:3002` (el frontend hace proxy via `/api/*`)
+- Backend corriendo en `http://localhost:3000` (el frontend hace proxy via `/api/*`)
 
 ## Instalacion
 
@@ -106,7 +106,7 @@ lib/
 El frontend se comunica con el backend a traves de un proxy configurado en `next.config.mjs`:
 
 ```
-/api/* → http://localhost:3002/*
+/api/* → http://localhost:3000/*
 ```
 
 La autenticacion usa cookies HTTP-only con auto-refresh de token en respuestas 401.

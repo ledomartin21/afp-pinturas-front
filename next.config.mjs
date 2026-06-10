@@ -1,4 +1,6 @@
 /** @type {import('next').NextConfig} */
+const backendUrl = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002").replace(/\/$/, "")
+
 const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
@@ -10,7 +12,7 @@ const nextConfig = {
     return [
       {
         source: "/api/:path*",
-        destination: "http://localhost:3002/:path*",
+        destination: `${backendUrl}/:path*`,
       },
     ]
   },

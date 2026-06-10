@@ -138,7 +138,8 @@ export function OrdersScreen({ onOrderClick, onOrderPdfClick, onNavigate, onOpen
                   {isExpanded && (
                     <div className="border-t bg-muted/30 p-3 space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
                       {order.items.map((item) => (
-                        <div key={item.id} className="flex gap-3 bg-card rounded-lg p-2">
+                        <div key={item.cartKey} className="bg-card rounded-lg p-2">
+                          <div className="flex gap-3">
                           <img
                             src={item.image || "/placeholder.svg"}
                             alt={item.name}
@@ -151,6 +152,16 @@ export function OrdersScreen({ onOrderClick, onOrderPdfClick, onNavigate, onOpen
                           <p className="text-xs font-bold whitespace-nowrap self-center">
                             ${(item.price * item.quantity).toLocaleString("es-AR")}
                           </p>
+                          </div>
+                          {item.type === "promotion" && item.includedItems.length > 0 && (
+                            <div className="mt-1 rounded-md border border-amber-200 bg-amber-50 p-1.5">
+                              {item.includedItems.map((component) => (
+                                <p key={`${item.cartKey}-${component.productId}`} className="text-[10px] text-amber-700">
+                                  - {component.quantity} x {component.name}
+                                </p>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       ))}
                       <div className="pt-2 border-t flex items-center justify-between">

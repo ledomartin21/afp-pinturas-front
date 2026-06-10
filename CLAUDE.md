@@ -87,7 +87,7 @@ hooks/
 
 ## API Backend
 
-- Proxy: `/api/*` → `http://localhost:3002/*` (configurado en `next.config.mjs`)
+- Proxy: `/api/*` → `http://localhost:3000/*` (configurado en `next.config.mjs`)
 - Auth: Cookies HTTP-only (`credentials: "include"`)
 - Auto-refresh: El client reintenta con refresh token en respuestas 401
 

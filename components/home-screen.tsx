@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { ClipboardList, Menu, Search, ShoppingBag, ShoppingCart } from "lucide-react"
+import { ClipboardList, Menu, ReceiptText, Search, ShoppingBag, ShoppingCart } from "lucide-react"
 import type { Screen } from "@/app/page"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -307,7 +307,7 @@ export function HomeScreen({ onNavigate, onSearchNavigate, onCatalogPresetNaviga
 
         <section className="mt-5 px-4">
           <Card className="rounded-[1.7rem] border-none bg-card shadow-[0_12px_28px_rgba(15,23,42,0.06)]">
-            <CardContent className="p-4">
+            <CardContent className="space-y-3 p-4">
               <button
                 type="button"
                 onClick={() => onNavigate("orders")}
@@ -320,6 +320,23 @@ export function HomeScreen({ onNavigate, onSearchNavigate, onCatalogPresetNaviga
                   <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary/75">Mis actividades</p>
                   <p className="mt-1 text-base font-bold text-foreground">Mis pedidos</p>
                   <p className="mt-0.5 text-xs text-muted-foreground">Consultá estados, detalle y seguimiento de compras.</p>
+                </div>
+                <div className="rounded-full border border-primary/15 bg-white px-2.5 py-1 text-[11px] font-semibold text-primary">
+                  Ver
+                </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => onNavigate("account")}
+                className="flex w-full items-center gap-3 rounded-[1.3rem] border border-border/70 bg-[linear-gradient(135deg,white_0%,hsl(var(--accent)/0.28)_100%)] px-4 py-4 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] transition-transform active:scale-[0.99]"
+              >
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-sm">
+                  <ReceiptText className="h-5 w-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary/75">Cuenta corriente</p>
+                  <p className="mt-1 text-base font-bold text-foreground">Mi cuenta</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">Revisá comprobantes y saldos pendientes.</p>
                 </div>
                 <div className="rounded-full border border-primary/15 bg-white px-2.5 py-1 text-[11px] font-semibold text-primary">
                   Ver

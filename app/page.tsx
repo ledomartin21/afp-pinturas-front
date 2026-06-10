@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { LoginScreen } from "@/components/login-screen"
 import { HomeScreen } from "@/components/home-screen"
 import { CatalogScreen } from "@/components/catalog-screen"
@@ -13,8 +13,10 @@ import { OrderDetailScreen } from "@/components/order-detail-screen"
 import { OrderPdfScreen } from "@/components/order-pdf-screen"
 import { ProfileScreen } from "@/components/profile-screen"
 import { AdminCarouselScreen } from "@/components/admin-carousel-screen"
+import { PromotionDetailScreen } from "@/components/promotion-detail-screen"
+import { AccountScreen } from "@/components/account-screen"
 import { SidebarMenu } from "@/components/sidebar-menu"
-import { authService, ordersService } from "@/lib/api"
+import { authService, ordersService, productsService } from "@/lib/api"
 import type { CreatePedidoPayload } from "@/lib/api/orders.service"
 import { APP_CONSTANTS } from "@/lib/config/constants"
 
@@ -27,8 +29,10 @@ export type Screen =
   | "checkout"
   | "transfer-payment"
   | "orders"
+  | "account"
   | "order-detail"
   | "order-pdf"
+  | "promotion-detail"
   | "profile"
   | "admin-carousel"
 
@@ -54,6 +58,8 @@ export type Product = {
     comboProductoCodigoA?: string | null
     comboProductoCodigoB?: string | null
     comboPrecioFijo?: number | null
+    comboItems?: Array<{ productoCodigo: string; cantidad: number; nombre?: string; marca?: string }>
+    comboStockDisponible?: number | null
     soloVisual: boolean
     aplicaEnCheckout: boolean
     prioridad: number
@@ -63,10 +69,40 @@ export type Product = {
   description?: string
 }
 
-export type CartItem = Product & {
+export type PromotionCartComponent = {
+  productId: string
+  name: string
+  quantity: number
+  brand?: string
+  image?: string
+}
+
+export type ProductCartItem = Product & {
+  type: "product"
+  cartKey: string
   quantity: number
   discount?: number
 }
+
+export type PromotionCartItem = {
+  type: "promotion"
+  cartKey: string
+  id: string
+  promotionId: number
+  promotionName: string
+  promotionDescription?: string | null
+  promotionType: "porcentaje" | "nxm" | "combo_fijo"
+  promotionScope: "producto" | "rubro" | "marca" | "combo"
+  name: string
+  price: number
+  stock: number
+  image: string
+  category: string
+  quantity: number
+  includedItems: PromotionCartComponent[]
+}
+
+export type CartItem = ProductCartItem | PromotionCartItem
 
 export type Order = {
   id: string
@@ -83,6 +119,8 @@ export type Order = {
     codigoPostal: string
     provincia?: string
   } | null
+  comisionistaNombre?: string
+  comisionistaTelefono?: string
 }
 
 type CatalogNavigationState = {
@@ -103,9 +141,11 @@ export default function Home() {
   const [lastOrderTotal, setLastOrderTotal] = useState(0)
   const [pendingTransferOrder, setPendingTransferOrder] = useState<CreatePedidoPayload | null>(null)
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
+  const [selectedPromotion, setSelectedPromotion] = useState<PromotionCartItem | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [catalogNavigation, setCatalogNavigation] = useState<CatalogNavigationState | null>(null)
   const [approvedReserveProducts, setApprovedReserveProducts] = useState<string[]>([])
+  const catalogNavigationTokenRef = useRef(0)
 
   useEffect(() => {
     const bootstrapSession = async () => {
@@ -168,23 +208,38 @@ export default function Home() {
           : 0
 
     setCart((prev) => {
-      const existingItem = prev.find((item) => item.id === product.id)
+      const cartKey = `product:${product.id}`
+      const existingItem = prev.find((item) => item.cartKey === cartKey && item.type === "product") as ProductCartItem | undefined
       if (existingItem) {
+        const previousDiscount = existingItem.discount || 0
         return prev.map((item) =>
-          item.id === product.id
-            ? { ...item, quantity: item.quantity + quantity, discount: effectiveDiscount || item.discount }
+          item.cartKey === cartKey
+            ? { ...item, quantity: item.quantity + quantity, discount: effectiveDiscount || previousDiscount }
             : item,
         )
       }
-      return [...prev, { ...product, quantity, discount: effectiveDiscount }]
+      return [...prev, { ...product, type: "product", cartKey, quantity, discount: effectiveDiscount }]
     })
   }
 
-  const handleUpdateQuantity = (productId: string, quantity: number) => {
+  const handleAddPromotionToCart = (promotion: PromotionCartItem, quantity = 1) => {
+    setCart((prev) => {
+      const existingItem = prev.find((item) => item.cartKey === promotion.cartKey)
+      if (existingItem && existingItem.type === "promotion") {
+        return prev.map((item) =>
+          item.cartKey === promotion.cartKey ? { ...item, quantity: item.quantity + quantity } : item,
+        )
+      }
+
+      return [...prev, { ...promotion, quantity }]
+    })
+  }
+
+  const handleUpdateQuantity = (cartKey: string, quantity: number) => {
     if (quantity <= 0) {
-      setCart((prev) => prev.filter((item) => item.id !== productId))
+      setCart((prev) => prev.filter((item) => item.cartKey !== cartKey))
     } else {
-      setCart((prev) => prev.map((item) => (item.id === productId ? { ...item, quantity } : item)))
+      setCart((prev) => prev.map((item) => (item.cartKey === cartKey ? { ...item, quantity } : item)))
     }
   }
 
@@ -202,6 +257,109 @@ export default function Home() {
     navigateToScreen("product-detail", product)
   }
 
+  const handleViewPromotion = async (product: Product) => {
+    if (!product.promotion) {
+      return
+    }
+
+    let includedItems: PromotionCartComponent[] = [
+      {
+        productId: product.id,
+        name: product.name,
+        quantity: 1,
+        brand: product.brand,
+        image: product.image,
+      },
+    ]
+    let stock = product.stock
+    let promoPrice = product.price
+    let partnerProduct: Product | null = null
+
+    if (product.promotion.tipo === "combo_fijo") {
+      const comboItems = product.promotion.comboItems && product.promotion.comboItems.length > 0
+        ? product.promotion.comboItems
+        : [
+            product.promotion.comboProductoCodigoA ? { productoCodigo: product.promotion.comboProductoCodigoA, cantidad: 1 } : null,
+            product.promotion.comboProductoCodigoB ? { productoCodigo: product.promotion.comboProductoCodigoB, cantidad: 1 } : null,
+          ].filter((item): item is { productoCodigo: string; cantidad: number } => Boolean(item))
+
+      const comboPrice = Number(product.promotion.comboPrecioFijo || 0)
+      if (comboPrice <= 0 || comboItems.length === 0) {
+        return
+      }
+
+      const currentCode = product.id.trim()
+      const resolvedItems = await Promise.all(
+        comboItems.map(async (comboItem) => {
+          const comboCode = (comboItem.productoCodigo || "").trim()
+          if (!comboCode) return null
+
+          if (comboCode === currentCode) {
+            return {
+              product: product,
+              quantity: Number(comboItem.cantidad || 1),
+            }
+          }
+
+          const fetched = await productsService.getProductByCode(comboCode).catch(() => null)
+          if (!fetched) {
+            return null
+          }
+
+          return {
+            product: fetched,
+            quantity: Number(comboItem.cantidad || 1),
+          }
+        }),
+      )
+
+      const validItems = resolvedItems.filter((item): item is { product: Product; quantity: number } => Boolean(item))
+      if (validItems.length === 0) {
+        return
+      }
+
+      includedItems = validItems.map(({ product: comboProduct, quantity }) => ({
+        productId: comboProduct.id,
+        name: comboProduct.name,
+        quantity,
+        brand: comboProduct.brand,
+        image: comboProduct.image,
+      }))
+
+      const stockValues = validItems.map(({ product: comboProduct, quantity }) => {
+        const qty = quantity > 0 ? quantity : 1
+        return Math.floor(Number(comboProduct.stock || 0) / qty)
+      })
+
+      partnerProduct = validItems.find((item) => item.product.id !== product.id)?.product || null
+      stock = product.promotion.comboStockDisponible != null
+        ? Math.max(0, Number(product.promotion.comboStockDisponible || 0))
+        : stockValues.length > 0
+          ? Math.max(0, Math.min(...stockValues))
+          : 0
+      promoPrice = comboPrice
+    }
+
+    setSelectedPromotion({
+      type: "promotion",
+      cartKey: `promotion:${product.promotion.id}`,
+      id: `PROMO${product.promotion.id}`,
+      promotionId: product.promotion.id,
+      promotionName: product.promotion.nombre,
+      promotionDescription: product.promotion.descripcion,
+      promotionType: product.promotion.tipo,
+      promotionScope: product.promotion.ambitoTipo,
+      name: product.promotion.nombre || `Combo ${product.name}`,
+      price: promoPrice,
+      stock,
+      image: product.image || partnerProduct?.image || "/placeholder.svg",
+      category: product.category || "Promociones",
+      quantity: 1,
+      includedItems,
+    })
+    navigateToScreen("promotion-detail")
+  }
+
   const isReserveApproved = (productId: string) => approvedReserveProducts.includes(productId)
 
   const approveReserveForProduct = (productId: string) => {
@@ -209,11 +367,12 @@ export default function Home() {
   }
 
   const openCatalog = (category?: string, search?: string, preset: "promotions" | "default" = "default") => {
+    catalogNavigationTokenRef.current += 1
     setCatalogNavigation({
       category,
       search,
       preset,
-      token: Date.now(),
+      token: catalogNavigationTokenRef.current,
     })
     navigateToScreen("catalog")
   }
@@ -261,6 +420,7 @@ export default function Home() {
     setIsLoggedIn(false)
     setIsAdmin(false)
     setApprovedReserveProducts([])
+    setSelectedPromotion(null)
     navigateToScreen("login")
   }
 
@@ -313,6 +473,7 @@ export default function Home() {
             navigationToken={catalogNavigation?.token}
             isReserveApproved={isReserveApproved}
             onApproveReserve={approveReserveForProduct}
+            onViewPromotion={handleViewPromotion}
           />
         )
       case "product-detail":
@@ -323,11 +484,11 @@ export default function Home() {
             onBack={() => navigateToScreen("catalog")}
             onProductClick={handleProductClick}
             onNavigate={navigateToScreen}
-            onOpenMenu={() => setSidebarOpen(true)}
             cartCount={cart.reduce((sum, item) => sum + item.quantity, 0)}
             isAdmin={isAdmin}
             isReserveApproved={isReserveApproved}
             onApproveReserve={approveReserveForProduct}
+            onViewPromotion={handleViewPromotion}
           />
         )
       case "cart":
@@ -373,10 +534,31 @@ export default function Home() {
             cartCount={cart.reduce((sum, item) => sum + item.quantity, 0)}
           />
         )
+      case "account":
+        return (
+          <AccountScreen
+            onNavigate={navigateToScreen}
+            onOpenMenu={() => setSidebarOpen(true)}
+            cartCount={cart.reduce((sum, item) => sum + item.quantity, 0)}
+          />
+        )
       case "order-detail":
         return <OrderDetailScreen order={selectedOrder} onBack={() => navigateToScreen("orders")} />
       case "order-pdf":
         return <OrderPdfScreen order={selectedOrder} onBack={() => navigateToScreen("orders")} />
+      case "promotion-detail":
+        return (
+          <PromotionDetailScreen
+            promotion={selectedPromotion}
+            onAddPromotion={(promotion, quantity) => {
+              handleAddPromotionToCart(promotion, quantity)
+              navigateToScreen("cart")
+            }}
+            onBack={() => navigateToScreen("catalog")}
+            onNavigate={navigateToScreen}
+            cartCount={cart.reduce((sum, item) => sum + item.quantity, 0)}
+          />
+        )
       case "profile":
         return (
           <ProfileScreen

@@ -12,6 +12,17 @@ export function calculateLinePricing(item: CartItem, quantity = item.quantity): 
   const qty = Math.max(0, Number(quantity || 0))
   const price = Number(item.price || 0)
   const baseTotal = Number((price * qty).toFixed(2))
+
+  if (item.type === "promotion") {
+    return {
+      baseTotal,
+      finalTotal: baseTotal,
+      discountAmount: 0,
+      effectiveDiscountPercent: 0,
+      unitPrice: price,
+    }
+  }
+
   if (qty === 0 || price <= 0) {
     return { baseTotal, finalTotal: 0, discountAmount: 0, effectiveDiscountPercent: 0, unitPrice: 0 }
   }

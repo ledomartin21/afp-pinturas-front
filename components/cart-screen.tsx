@@ -9,7 +9,7 @@ import { calculateLinePricing } from "@/lib/promotion-pricing"
 
 interface CartScreenProps {
   items: CartItem[]
-  onUpdateQuantity: (productId: string, quantity: number) => void
+  onUpdateQuantity: (cartKey: string, quantity: number) => void
   onCheckout: () => void
   onBack: () => void
   onNavigate: (screen: Screen) => void
@@ -64,9 +64,10 @@ export function CartScreen({ items, onUpdateQuantity, onCheckout, onBack, onNavi
               const line = calculateLinePricing(item)
               const itemPrice = line.unitPrice
               const itemTotal = line.finalTotal
+              const isPromotion = item.type === "promotion"
 
               return (
-                <Card key={item.id} className="border-2">
+                <Card key={item.cartKey} className="border-2">
                   <CardContent className="p-4">
                     <div className="flex gap-4">
                       <img
@@ -78,9 +79,12 @@ export function CartScreen({ items, onUpdateQuantity, onCheckout, onBack, onNavi
                         <div>
                           <h3 className="font-semibold text-balance leading-tight">{item.name}</h3>
                           <p className="text-sm text-muted-foreground">{item.category}</p>
+                          {isPromotion && (
+                            <p className="mt-1 text-[11px] font-medium text-amber-700">Promoción</p>
+                          )}
                         </div>
                         <div className="flex items-center gap-2">
-                          {(item.discount && item.discount > 0) || line.discountAmount > 0 ? (
+                          {!isPromotion && ((item.discount && item.discount > 0) || line.discountAmount > 0) ? (
                             <div className="flex items-center gap-2">
                               <Badge className="bg-accent text-white text-xs">
                                 <Percent className="w-3 h-3 mr-1" />
@@ -99,19 +103,30 @@ export function CartScreen({ items, onUpdateQuantity, onCheckout, onBack, onNavi
                             </div>
                           ) : (
                             <p className="text-lg font-bold text-accent-foreground">
-                              ${item.price.toLocaleString("es-AR")}
+                              ${itemPrice.toLocaleString("es-AR")}
                             </p>
                           )}
                         </div>
                       </div>
                     </div>
+                    {isPromotion && item.includedItems.length > 0 && (
+                      <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-2">
+                        <p className="text-[11px] font-semibold text-amber-800">Incluye:</p>
+                        {item.includedItems.map((component) => (
+                          <p key={`${item.cartKey}-${component.productId}`} className="text-[11px] text-amber-700">
+                            - {component.quantity} x {component.name}
+                            {component.brand ? ` (${component.brand})` : ""}
+                          </p>
+                        ))}
+                      </div>
+                    )}
                     <div className="mt-3 flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Button
                           variant="outline"
                           size="icon"
                           className="h-8 w-8 bg-transparent border-2"
-                          onClick={() => onUpdateQuantity(item.id, item.quantity - 1)}
+                          onClick={() => onUpdateQuantity(item.cartKey, item.quantity - 1)}
                         >
                           <Minus className="w-4 h-4" />
                         </Button>
@@ -120,7 +135,7 @@ export function CartScreen({ items, onUpdateQuantity, onCheckout, onBack, onNavi
                           variant="outline"
                           size="icon"
                           className="h-8 w-8 bg-transparent border-2"
-                          onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
+                          onClick={() => onUpdateQuantity(item.cartKey, item.quantity + 1)}
                           disabled={item.quantity >= item.stock}
                         >
                           <Plus className="w-4 h-4" />
@@ -132,7 +147,7 @@ export function CartScreen({ items, onUpdateQuantity, onCheckout, onBack, onNavi
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                          onClick={() => onUpdateQuantity(item.id, 0)}
+                          onClick={() => onUpdateQuantity(item.cartKey, 0)}
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { User, MapPin, LogOut, ShieldCheck, Loader2, Menu, ShoppingCart } from "lucide-react"
+import { User, MapPin, LogOut, ShieldCheck, Loader2, Menu, ShoppingCart, KeyRound } from "lucide-react"
 import { ApiError, locationService, userService } from "@/lib/api"
 import type { UserProfile } from "@/lib/types"
 import type { Screen } from "@/app/page"
@@ -23,6 +23,7 @@ export function ProfileScreen({ onLogout, onNavigate, onOpenMenu, cartCount, isA
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
+  const [isChangingPassword, setIsChangingPassword] = useState(false)
   const [errorMessage, setErrorMessage] = useState("")
   const [successMessage, setSuccessMessage] = useState("")
 
@@ -36,6 +37,8 @@ export function ProfileScreen({ onLogout, onNavigate, onOpenMenu, cartCount, isA
   const [provinceId, setProvinceId] = useState("")
   const [provinces, setProvinces] = useState<Array<{ id: number; nombre: string }>>([])
   const [cities, setCities] = useState<Array<{ id: number; nombre: string }>>([])
+  const [newPassword, setNewPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -97,7 +100,9 @@ export function ProfileScreen({ onLogout, onNavigate, onOpenMenu, cartCount, isA
       setIsSaving(true)
       setErrorMessage("")
       setSuccessMessage("")
-      const domicilio = [address, postalCode].filter(Boolean).join(", ")
+      const selectedCity = cities.find((option) => String(option.id) === cityId)?.nombre || ""
+      const selectedProvince = provinces.find((option) => String(option.id) === provinceId)?.nombre || ""
+      const domicilio = [address, selectedCity, postalCode, selectedProvince].filter(Boolean).join(", ")
       const updated = await userService.updateProfile({
         razonSocial,
         mail,
@@ -111,7 +116,11 @@ export function ProfileScreen({ onLogout, onNavigate, onOpenMenu, cartCount, isA
       setTimeout(() => setSuccessMessage(""), 3000)
     } catch (error) {
       if (error instanceof ApiError) {
-        setErrorMessage(error.message || "No se pudieron guardar los cambios")
+        if (error.status === 409) {
+          setErrorMessage("No se pudo guardar: el email ya está en uso por otro usuario.")
+        } else {
+          setErrorMessage(error.message || "No se pudieron guardar los cambios")
+        }
       } else {
         setErrorMessage("No se pudieron guardar los cambios")
       }
@@ -127,6 +136,42 @@ export function ProfileScreen({ onLogout, onNavigate, onOpenMenu, cartCount, isA
       .join("")
       .toUpperCase()
       .slice(0, 2)
+  }
+
+  const handlePasswordUpdate = async () => {
+    const password = newPassword.trim()
+    const confirmation = confirmPassword.trim()
+
+    if (password.length < 8) {
+      setErrorMessage("La contraseña debe tener al menos 8 caracteres")
+      setSuccessMessage("")
+      return
+    }
+
+    if (password !== confirmation) {
+      setErrorMessage("Las contraseñas no coinciden")
+      setSuccessMessage("")
+      return
+    }
+
+    try {
+      setIsChangingPassword(true)
+      setErrorMessage("")
+      setSuccessMessage("")
+      await userService.updateProfile({ contrasena: password })
+      setNewPassword("")
+      setConfirmPassword("")
+      setSuccessMessage("Contraseña actualizada correctamente")
+      setTimeout(() => setSuccessMessage(""), 3000)
+    } catch (error) {
+      if (error instanceof ApiError) {
+        setErrorMessage(error.message || "No se pudo actualizar la contraseña")
+      } else {
+        setErrorMessage("No se pudo actualizar la contraseña")
+      }
+    } finally {
+      setIsChangingPassword(false)
+    }
   }
 
   if (isLoading) {
@@ -243,6 +288,58 @@ export function ProfileScreen({ onLogout, onNavigate, onOpenMenu, cartCount, isA
                   </span>
                 ) : (
                   "Guardar Cambios"
+                )}
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 shadow-sm overflow-hidden">
+            <CardHeader className="bg-primary/10 border-b border-primary/15 py-3 px-4">
+              <CardTitle className="flex items-center gap-2 text-sm">
+                <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
+                  <KeyRound className="w-4 h-4 text-white" />
+                </div>
+                Seguridad
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 space-y-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="new-password" className="text-xs">Nueva contraseña</Label>
+                <Input
+                  id="new-password"
+                  type="password"
+                  minLength={8}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Mínimo 8 caracteres"
+                  className="h-11"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="confirm-password" className="text-xs">Confirmar nueva contraseña</Label>
+                <Input
+                  id="confirm-password"
+                  type="password"
+                  minLength={8}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Repetí la contraseña"
+                  className="h-11"
+                />
+              </div>
+              <Button
+                variant="outline"
+                className="w-full h-11 border-primary/30 text-primary hover:bg-primary/10 font-semibold text-sm"
+                onClick={handlePasswordUpdate}
+                disabled={isChangingPassword}
+              >
+                {isChangingPassword ? (
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Actualizando...
+                  </span>
+                ) : (
+                  "Actualizar Contraseña"
                 )}
               </Button>
             </CardContent>

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
-import { Home, Grid2X2, ClipboardList, User, LogOut, ChevronDown, ChevronRight } from "lucide-react"
+import { Home, Grid2X2, ClipboardList, User, LogOut, ChevronDown, ChevronRight, ReceiptText } from "lucide-react"
 import type { Screen } from "@/app/page"
 import { productsService } from "@/lib/api"
 import { getCategoryIcon } from "@/lib/config/category-icons"
@@ -122,6 +122,14 @@ export function SidebarMenu({ open, onOpenChange, onNavigate, onCategoryNavigate
             <span className="font-bold text-sm text-foreground">Mis Pedidos</span>
           </button>
 
+          <button
+            onClick={() => handleNavigate("account")}
+            className="flex items-center gap-4 p-3 transition-colors hover:bg-primary/10 rounded-lg"
+          >
+            <ReceiptText className="w-5 h-5 text-foreground" />
+            <span className="font-bold text-sm text-foreground">Mi Cuenta</span>
+          </button>
+
           {/* Mi Perfil */}
           <button
             onClick={() => handleNavigate("profile")}
@@ -150,7 +158,9 @@ export function SidebarMenu({ open, onOpenChange, onNavigate, onCategoryNavigate
           <div className="flex gap-4">
             {/* Facebook */}
             <a
-              href="#"
+              href="https://www.facebook.com/share/1NuEudFTjA/?mibextid=wwXIfr"
+              target="_blank"
+              rel="noopener noreferrer"
               aria-label="Facebook"
               className="w-10 h-10 rounded-lg flex items-center justify-center bg-muted text-foreground hover:bg-muted/80 transition-all"
             >
@@ -160,7 +170,9 @@ export function SidebarMenu({ open, onOpenChange, onNavigate, onCategoryNavigate
             </a>
             {/* Instagram */}
             <a
-              href="#"
+              href="https://www.instagram.com/afppinturasvm?igsh=MXFydmdqbGQ3enJzNg=="
+              target="_blank"
+              rel="noopener noreferrer"
               aria-label="Instagram"
               className="w-10 h-10 rounded-lg flex items-center justify-center bg-muted text-foreground hover:bg-muted/80 transition-all"
             >

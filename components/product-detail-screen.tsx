@@ -14,24 +14,24 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { ArrowLeft, ChevronLeft, ChevronRight, Minus, Plus, ShoppingCart, Percent, AlertTriangle, CalendarClock, Loader2, Menu } from "lucide-react"
+import { ArrowLeft, ChevronLeft, ChevronRight, Minus, Plus, ShoppingCart, Percent, AlertTriangle, CalendarClock, Loader2 } from "lucide-react"
 import type { Product, Screen } from "@/app/page"
 import { productsService } from "@/lib/api"
 
 interface ProductDetailScreenProps {
   product: Product | null
   onAddToCart: (product: Product, quantity: number, discount: number) => void
+  onViewPromotion: (product: Product) => void
   onBack: () => void
   onProductClick: (product: Product) => void
   onNavigate: (screen: Screen) => void
-  onOpenMenu: () => void
   cartCount: number
   isAdmin: boolean
   isReserveApproved: (productId: string) => boolean
   onApproveReserve: (productId: string) => void
 }
 
-export function ProductDetailScreen({ product, onAddToCart, onBack, onProductClick, onNavigate, onOpenMenu, cartCount, isAdmin, isReserveApproved, onApproveReserve }: ProductDetailScreenProps) {
+export function ProductDetailScreen({ product, onAddToCart, onViewPromotion, onBack, onProductClick, onNavigate, cartCount, isAdmin, isReserveApproved, onApproveReserve }: ProductDetailScreenProps) {
   const ADMIN_DISCOUNT_OPTIONS = [10, 15, 20] as const
   const [quantity, setQuantity] = useState(1)
   const [showFeedback, setShowFeedback] = useState(false)
@@ -44,10 +44,7 @@ export function ProductDetailScreen({ product, onAddToCart, onBack, onProductCli
   const [galleryImages, setGalleryImages] = useState<string[]>([])
   const [galleryLoading, setGalleryLoading] = useState(false)
   const [activeImageIndex, setActiveImageIndex] = useState(0)
-  const [comboPartnerLabel, setComboPartnerLabel] = useState<string | null>(null)
-  const [comboPartnerImage, setComboPartnerImage] = useState<string | null>(null)
-  const [comboPartnerProduct, setComboPartnerProduct] = useState<Product | null>(null)
-  const [showComboChoiceDialog, setShowComboChoiceDialog] = useState(false)
+  const [comboPreviewItems, setComboPreviewItems] = useState<Array<{ code: string; name: string; image: string; quantity: number }>>([])
   const [feedbackMessage, setFeedbackMessage] = useState("Producto agregado al carrito")
 
   // Scroll al tope cuando cambia el producto
@@ -107,49 +104,69 @@ export function ProductDetailScreen({ product, onAddToCart, onBack, onProductCli
 
   useEffect(() => {
     if (!product || product.promotion?.tipo !== "combo_fijo") {
-      setComboPartnerLabel(null)
-      setComboPartnerImage(null)
-      setComboPartnerProduct(null)
+      setComboPreviewItems([])
       return
     }
 
-    const currentCode = product.id.trim()
-    const codeA = (product.promotion.comboProductoCodigoA || "").trim()
-    const codeB = (product.promotion.comboProductoCodigoB || "").trim()
+    const comboItems = product.promotion.comboItems && product.promotion.comboItems.length > 0
+      ? product.promotion.comboItems
+      : [
+          product.promotion.comboProductoCodigoA ? { productoCodigo: product.promotion.comboProductoCodigoA, cantidad: 1 } : null,
+          product.promotion.comboProductoCodigoB ? { productoCodigo: product.promotion.comboProductoCodigoB, cantidad: 1 } : null,
+        ].filter((item): item is { productoCodigo: string; cantidad: number } => Boolean(item))
 
-    const partnerCode = currentCode === codeA ? codeB : currentCode === codeB ? codeA : codeA || codeB
-    if (!partnerCode) {
-      setComboPartnerLabel(null)
-      setComboPartnerImage(null)
-      setComboPartnerProduct(null)
+    if (comboItems.length === 0) {
+      setComboPreviewItems([])
       return
     }
 
     let cancelled = false
 
-    const loadPartner = async () => {
-      try {
-        const partner = await productsService.getProductByCode(partnerCode)
-        if (!cancelled) {
-          setComboPartnerLabel(partner.name || partnerCode)
-          setComboPartnerImage(partner.image || "/placeholder.svg")
-          setComboPartnerProduct(partner)
-        }
-      } catch {
-        if (!cancelled) {
-          setComboPartnerLabel(partnerCode)
-          setComboPartnerImage("/placeholder.svg")
-          setComboPartnerProduct(null)
-        }
+    const loadComboPreview = async () => {
+      const resolved = await Promise.all(
+        comboItems.map(async (comboItem) => {
+          const code = (comboItem.productoCodigo || "").trim()
+          if (!code) return null
+
+          if (code === product.id.trim()) {
+            return {
+              code,
+              name: product.name,
+              image: product.image || "/placeholder.svg",
+              quantity: Number(comboItem.cantidad || 1),
+            }
+          }
+
+          try {
+            const partner = await productsService.getProductByCode(code)
+            return {
+              code,
+              name: partner.name || code,
+              image: partner.image || "/placeholder.svg",
+              quantity: Number(comboItem.cantidad || 1),
+            }
+          } catch {
+            return {
+              code,
+              name: code,
+              image: "/placeholder.svg",
+              quantity: Number(comboItem.cantidad || 1),
+            }
+          }
+        }),
+      )
+
+      if (!cancelled) {
+        setComboPreviewItems(resolved.filter((item): item is { code: string; name: string; image: string; quantity: number } => Boolean(item)))
       }
     }
 
-    void loadPartner()
+    void loadComboPreview()
 
     return () => {
       cancelled = true
     }
-  }, [product?.id, product?.promotion?.tipo, product?.promotion?.comboProductoCodigoA, product?.promotion?.comboProductoCodigoB])
+  }, [product?.id, product?.name, product?.image, product?.promotion?.tipo, product?.promotion?.comboProductoCodigoA, product?.promotion?.comboProductoCodigoB, JSON.stringify(product?.promotion?.comboItems || [])])
 
   if (!product) {
     return (
@@ -189,32 +206,8 @@ export function ProductDetailScreen({ product, onAddToCart, onBack, onProductCli
       return
     }
 
-    if (product.promotion?.tipo === "combo_fijo") {
-      setShowComboChoiceDialog(true)
-      return
-    }
-
     onAddToCart(product, quantity, discount)
     setFeedbackMessage("Producto agregado al carrito")
-    setShowFeedback(true)
-    setTimeout(() => setShowFeedback(false), 2000)
-  }
-
-  const handleAddProductOnly = () => {
-    onAddToCart(product, quantity, discount)
-    setShowComboChoiceDialog(false)
-    setFeedbackMessage("Producto agregado al carrito")
-    setShowFeedback(true)
-    setTimeout(() => setShowFeedback(false), 2000)
-  }
-
-  const handleAddCombo = () => {
-    onAddToCart(product, quantity, 0)
-    if (comboPartnerProduct) {
-      onAddToCart(comboPartnerProduct, quantity, 0)
-    }
-    setShowComboChoiceDialog(false)
-    setFeedbackMessage(comboPartnerProduct ? "Combo agregado al carrito" : "Producto agregado al carrito")
     setShowFeedback(true)
     setTimeout(() => setShowFeedback(false), 2000)
   }
@@ -388,28 +381,60 @@ export function ProductDetailScreen({ product, onAddToCart, onBack, onProductCli
             </CardContent>
           </Card>
 
-          {product.promotion?.tipo === "combo_fijo" && (
+          {product.promotion && (
             <Card className="border border-amber-200 bg-amber-50/70 shadow-sm">
               <CardContent className="p-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Promocion combo</p>
-                <div className="mt-2 flex items-center gap-2">
-                  <img
-                    src={product.image || "/placeholder.svg"}
-                    alt={product.name}
-                    className="h-9 w-9 rounded-md border border-amber-200 bg-white object-cover"
-                  />
-                  <span className="text-sm font-bold text-amber-800">+</span>
-                  <img
-                    src={comboPartnerImage || "/placeholder.svg"}
-                    alt={comboPartnerLabel || "Producto combo"}
-                    className="h-9 w-9 rounded-md border border-amber-200 bg-white object-cover"
-                  />
-                </div>
-                <p className="mt-1 text-sm text-amber-900">
-                  Incluye 2 productos: {product.name}
-                  {comboPartnerLabel ? ` + ${comboPartnerLabel}` : ""}.
-                  Precio final del combo: ${Number(product.promotion.comboPrecioFijo || 0).toLocaleString("es-AR")}
+                <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+                  {product.promotion.tipo === "combo_fijo"
+                    ? "Promocion combo"
+                    : product.promotion.tipo === "nxm"
+                      ? "Promocion llevas mas pagas menos"
+                      : "Promocion porcentual"}
                 </p>
+                <p className="mt-2 text-sm text-amber-900">
+                  {product.promotion.descripcion || "Descuento activo disponible en este producto."}
+                </p>
+                {product.promotion.tipo === "combo_fijo" ? (
+                  <>
+                    <div className="mt-2 flex items-center gap-2">
+                      {comboPreviewItems.slice(0, 3).map((item, index) => (
+                        <div key={`${item.code}-${index}`} className="flex items-center gap-2">
+                          {index > 0 && <span className="text-sm font-bold text-amber-800">+</span>}
+                          <img
+                            src={item.image || "/placeholder.svg"}
+                            alt={item.name}
+                            className="h-9 w-9 rounded-md border border-amber-200 bg-white object-cover"
+                          />
+                        </div>
+                      ))}
+                      {comboPreviewItems.length > 3 && <span className="text-xs font-semibold text-amber-700">+{comboPreviewItems.length - 3}</span>}
+                    </div>
+                    <p className="mt-1 text-sm text-amber-900">
+                      Incluye {comboPreviewItems.reduce((sum, item) => sum + Number(item.quantity || 0), 0)} unidad(es):
+                      {" "}
+                      {comboPreviewItems
+                        .map((item) => (item.quantity > 1 ? `${item.quantity}x ${item.name}` : item.name))
+                        .join(" + ") || product.name}
+                      . Precio final del combo: ${Number(product.promotion.comboPrecioFijo || 0).toLocaleString("es-AR")}
+                    </p>
+                  </>
+                ) : (
+                  <p className="mt-1 text-sm text-amber-900">
+                    {product.promotion.ambitoTipo === "rubro"
+                      ? "Aplica a productos del mismo rubro."
+                      : product.promotion.ambitoTipo === "marca"
+                        ? "Aplica a productos de la misma marca."
+                        : "Aplica al producto seleccionado."}
+                  </p>
+                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="mt-3 h-9 rounded-xl border-amber-300 bg-white text-amber-800 hover:bg-amber-100"
+                  onClick={() => onViewPromotion(product)}
+                >
+                  Ver promoción
+                </Button>
               </CardContent>
             </Card>
           )}
@@ -612,26 +637,6 @@ export function ProductDetailScreen({ product, onAddToCart, onBack, onProductCli
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={showComboChoiceDialog} onOpenChange={setShowComboChoiceDialog}>
-        <AlertDialogContent className="max-w-[90vw] rounded-2xl">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Este producto tiene promo combo</AlertDialogTitle>
-            <AlertDialogDescription className="text-sm leading-relaxed">
-              Podés llevar solo {product.name} o aprovechar el combo con
-              {comboPartnerLabel ? ` ${comboPartnerLabel}` : " el segundo producto"}.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="flex-col gap-2 sm:flex-col">
-            <AlertDialogAction onClick={handleAddCombo} className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
-              Llevar combo
-            </AlertDialogAction>
-            <AlertDialogAction onClick={handleAddProductOnly} className="w-full border border-border bg-card text-foreground hover:bg-muted">
-              Llevar solo este producto
-            </AlertDialogAction>
-            <AlertDialogCancel className="mt-0 w-full">Cancelar</AlertDialogCancel>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   )
 }

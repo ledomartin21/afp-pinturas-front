@@ -6,6 +6,7 @@ export type Screen =
   | "cart"
   | "checkout"
   | "orders"
+  | "account"
   | "profile"
   | "invoices"
 
@@ -16,6 +17,7 @@ export type Product = {
   promoPrice?: number
   stock: number
   image: string
+  images?: string[]
   category: string
   brand?: string
   isPromo?: boolean
@@ -34,6 +36,8 @@ export type PromotionSummary = {
   comboProductoCodigoA?: string | null
   comboProductoCodigoB?: string | null
   comboPrecioFijo?: number | null
+  comboItems?: Array<{ productoCodigo: string; cantidad: number; nombre?: string; marca?: string }>
+  comboStockDisponible?: number | null
   soloVisual: boolean
   aplicaEnCheckout: boolean
   prioridad: number
@@ -41,10 +45,37 @@ export type PromotionSummary = {
   precioPromocional?: number | null
 }
 
-export type CartItem = Product & {
+export type PromotionCartComponent = {
+  productId: string
+  name: string
+  quantity: number
+  brand?: string
+  image?: string
+}
+
+export type ProductCartItem = Product & {
+  type: "product"
+  cartKey: string
   quantity: number
   discount?: number
 }
+
+export type PromotionCartItem = {
+  type: "promotion"
+  cartKey: string
+  id: string
+  promotionId: number
+  promotionName: string
+  name: string
+  price: number
+  stock: number
+  image: string
+  category: string
+  quantity: number
+  includedItems: PromotionCartComponent[]
+}
+
+export type CartItem = ProductCartItem | PromotionCartItem
 
 export type Order = {
   id: string
@@ -61,6 +92,8 @@ export type Order = {
     codigoPostal: string
     provincia?: string
   } | null
+  comisionistaNombre?: string
+  comisionistaTelefono?: string
 }
 
 export type Invoice = {
@@ -110,6 +143,25 @@ export type LoginResponse = {
   rolNombre?: string
 }
 
+export type PotentialClient = {
+  id: number
+  nombre: string
+  razonSocial: string
+  cuit: string
+  email?: string | null
+  telefono?: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export type CreatePotentialClientPayload = {
+  nombre: string
+  razonSocial: string
+  cuit: string
+  email?: string
+  telefono?: string
+}
+
 // Carruseles y Flyers
 export type Flyer = {
   id: number
@@ -151,6 +203,7 @@ export type UserProfile = {
   mail: string
   telefono: string
   domicilio: string
+  cuenta?: string | null
   provinciaId?: number
   ciudadId?: number
   rolId: number
@@ -163,4 +216,21 @@ export type UpdateProfilePayload = {
   domicilio?: string
   provinciaId?: number
   ciudadId?: number
+  contrasena?: string
+}
+
+export type AccountComprobante = {
+  cuenta: string
+  fecha: string | null
+  abreviatura: string
+  comprobante: string
+  importeCbte: number
+  saldo: number
+}
+
+export type AccountStatus = {
+  cuenta: string
+  totalComprobantes: number
+  totalSaldoAbierto: number
+  comprobantes: AccountComprobante[]
 }

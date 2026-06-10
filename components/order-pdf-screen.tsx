@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { ArrowLeft, Download, Loader2 } from "lucide-react"
 import type { Order } from "@/app/page"
-import { generateOrderPdf } from "@/lib/pdf/order-pdf"
+import { buildOrderPdfFilename, generateOrderPdf } from "@/lib/pdf/order-pdf"
 
 interface OrderPdfScreenProps {
   order: Order | null
@@ -42,12 +42,12 @@ export function OrderPdfScreen({ order, onBack }: OrderPdfScreenProps) {
     }
   }, [order])
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (!pdfUrl || !order) return
 
     const link = document.createElement("a")
     link.href = pdfUrl
-    link.download = `nota-pedido-${order.id}.pdf`
+    link.download = await buildOrderPdfFilename(order)
     link.click()
   }
 
@@ -78,18 +78,22 @@ export function OrderPdfScreen({ order, onBack }: OrderPdfScreenProps) {
       </header>
 
       <div className="flex-1 overflow-auto p-3">
-        {isLoading && (
-          <div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            Generando vista previa...
-          </div>
-        )}
+        <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col gap-3">
+          {isLoading && (
+            <div className="flex min-h-[70vh] flex-col items-center justify-center gap-3 rounded-3xl border bg-card text-sm text-muted-foreground shadow-sm">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              Generando vista previa...
+            </div>
+          )}
 
-        {!isLoading && errorMessage && <p className="text-sm text-red-600">{errorMessage}</p>}
+          {!isLoading && errorMessage && <p className="text-sm text-red-600">{errorMessage}</p>}
 
-        {!isLoading && !errorMessage && pdfUrl && (
-          <iframe src={pdfUrl} title="Vista previa Nota de Pedido" className="h-full min-h-[70vh] w-full rounded-xl border bg-card" />
-        )}
+          {!isLoading && !errorMessage && pdfUrl && (
+            <div className="overflow-hidden rounded-3xl border bg-[#2f2f2f] p-2 shadow-2xl">
+              <iframe src={pdfUrl} title="Vista previa Nota de Pedido" className="h-[78vh] w-full rounded-2xl border-0 bg-white" />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

@@ -41,11 +41,12 @@ import { toast } from "@/hooks/use-toast"
 
 interface CatalogScreenProps {
   onProductClick: (product: Product) => void
+  onViewPromotion: (product: Product) => void
   onNavigate: (screen: Screen) => void
   onOpenMenu: () => void
   cart: CartItem[]
   onAddToCart: (product: Product, quantity?: number) => void
-  onUpdateQuantity: (productId: string, quantity: number) => void
+  onUpdateQuantity: (cartKey: string, quantity: number) => void
   initialCategory?: string
   initialSearch?: string
   initialPreset?: "promotions" | "default"
@@ -56,18 +57,46 @@ interface CatalogScreenProps {
 
 const ITEMS_PER_PAGE = APP_CONSTANTS.ITEMS_PER_PAGE
 
-function getComboPartnerCode(productId: string, codeA?: string | null, codeB?: string | null) {
-  const current = (productId || "").trim()
-  const a = (codeA || "").trim()
-  const b = (codeB || "").trim()
+function getComboItemsFromPromotion(promotion?: Product["promotion"]) {
+  if (!promotion) return []
 
-  if (!current) return a || b || null
-  if (current === a) return b || null
-  if (current === b) return a || null
-  return a || b || null
+  if (promotion.comboItems && promotion.comboItems.length > 0) {
+    return promotion.comboItems
+      .map((item) => ({
+        productoCodigo: (item.productoCodigo || "").trim(),
+        cantidad: Number(item.cantidad || 1),
+      }))
+      .filter((item) => item.productoCodigo)
+  }
+
+  return [
+    promotion.comboProductoCodigoA ? { productoCodigo: promotion.comboProductoCodigoA.trim(), cantidad: 1 } : null,
+    promotion.comboProductoCodigoB ? { productoCodigo: promotion.comboProductoCodigoB.trim(), cantidad: 1 } : null,
+  ].filter((item): item is { productoCodigo: string; cantidad: number } => Boolean(item))
 }
 
-export function CatalogScreen({ onProductClick, onNavigate, onOpenMenu, cart, onAddToCart, onUpdateQuantity, initialCategory, initialSearch, initialPreset = "default", navigationToken, isReserveApproved, onApproveReserve }: CatalogScreenProps) {
+function buildPromotionListing(products: Product[]) {
+  const uniqueCombos = new Set<string>()
+  const result: Product[] = []
+
+  for (const product of products) {
+    if (!product.isPromo || !product.promotion) continue
+
+    if (product.promotion.tipo === "combo_fijo") {
+      const comboKey = `combo:${product.promotion.id}`
+      if (uniqueCombos.has(comboKey)) {
+        continue
+      }
+      uniqueCombos.add(comboKey)
+    }
+
+    result.push(product)
+  }
+
+  return result
+}
+
+export function CatalogScreen({ onProductClick, onViewPromotion, onNavigate, onOpenMenu, cart, onAddToCart, onUpdateQuantity, initialCategory, initialSearch, initialPreset = "default", navigationToken, isReserveApproved, onApproveReserve }: CatalogScreenProps) {
   const maxPrice = 50000
   const [isLoading, setIsLoading] = useState(true)
   const [products, setProducts] = useState<Product[]>([])
@@ -78,6 +107,8 @@ export function CatalogScreen({ onProductClick, onNavigate, onOpenMenu, cart, on
   const [searchInput, setSearchInput] = useState("")
   const [filterPreset, setFilterPreset] = useState<"promotions" | "default">("default")
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const loadRequestIdRef = useRef(0)
+  const promotionsCacheRef = useRef<Map<string, Product[]>>(new Map())
   const [selectedCategory, setSelectedCategory] = useState("Todas")
   const [selectedBrands, setSelectedBrands] = useState<string[]>([])
   const [priceRange, setPriceRange] = useState([0, 50000])
@@ -102,10 +133,11 @@ export function CatalogScreen({ onProductClick, onNavigate, onOpenMenu, cart, on
       new Set(
         products
           .filter((product) => product.promotion?.tipo === "combo_fijo")
-          .map((product) =>
-            getComboPartnerCode(product.id, product.promotion?.comboProductoCodigoA, product.promotion?.comboProductoCodigoB),
-          )
-          .filter((code): code is string => Boolean(code && !productMetaByCode.has(code) && !comboPartnerPreviewByCode[code])),
+          .flatMap((product) =>
+            getComboItemsFromPromotion(product.promotion)
+              .map((item) => item.productoCodigo)
+              .filter((code) => code && !productMetaByCode.has(code) && !comboPartnerPreviewByCode[code]),
+          ),
       ),
     )
 
@@ -158,25 +190,52 @@ export function CatalogScreen({ onProductClick, onNavigate, onOpenMenu, cart, on
 
   useEffect(() => {
     const loadProducts = async () => {
+      const requestId = ++loadRequestIdRef.current
+
       try {
-        setIsLoading(true)
+        if (requestId === loadRequestIdRef.current) {
+          setIsLoading(true)
+        }
+
         if (filterPreset === "promotions") {
-          const allProducts = await productsService.getProducts({
+          const promotionsCacheKey = JSON.stringify({
             search,
-            category: selectedCategory === "Todas" ? undefined : selectedCategory,
-            brands: selectedBrands,
+            selectedCategory,
+            selectedBrands: [...selectedBrands].sort(),
             minPrice: priceRange[0],
             maxPrice: priceRange[1],
           })
-          const promoProducts = allProducts.filter((product) => product.isPromo)
+
+          let promoProducts = promotionsCacheRef.current.get(promotionsCacheKey)
+
+          if (!promoProducts) {
+            const allProducts = await productsService.getProducts({
+              search,
+              category: selectedCategory === "Todas" ? undefined : selectedCategory,
+              brands: selectedBrands,
+              minPrice: priceRange[0],
+              maxPrice: priceRange[1],
+            })
+            promoProducts = buildPromotionListing(allProducts)
+            promotionsCacheRef.current.set(promotionsCacheKey, promoProducts)
+          }
+
+          if (requestId !== loadRequestIdRef.current) {
+            return
+          }
+
           const promoTotal = promoProducts.length
           const promoPages = Math.max(1, Math.ceil(promoTotal / ITEMS_PER_PAGE))
-          const start = (currentPage - 1) * ITEMS_PER_PAGE
+          const safePage = Math.min(currentPage, promoPages)
+          const start = (safePage - 1) * ITEMS_PER_PAGE
           const end = start + ITEMS_PER_PAGE
 
           setProducts(promoProducts.slice(start, end))
           setTotalProducts(promoTotal)
           setTotalPages(promoPages)
+          if (safePage !== currentPage) {
+            setCurrentPage(safePage)
+          }
         } else {
           const result = await productsService.getProductsPaginated(currentPage, ITEMS_PER_PAGE, {
             search,
@@ -186,15 +245,26 @@ export function CatalogScreen({ onProductClick, onNavigate, onOpenMenu, cart, on
             maxPrice: priceRange[1],
           })
 
+          if (requestId !== loadRequestIdRef.current) {
+            return
+          }
+
           setProducts(result.items)
           setTotalProducts(result.total)
           setTotalPages(result.totalPages)
         }
-        setErrorMessage("")
+
+        if (requestId === loadRequestIdRef.current) {
+          setErrorMessage("")
+        }
       } catch {
-        setErrorMessage("No se pudo cargar el catálogo")
+        if (requestId === loadRequestIdRef.current) {
+          setErrorMessage("No se pudo cargar el catálogo")
+        }
       } finally {
-        setIsLoading(false)
+        if (requestId === loadRequestIdRef.current) {
+          setIsLoading(false)
+        }
       }
     }
 
@@ -249,7 +319,7 @@ export function CatalogScreen({ onProductClick, onNavigate, onOpenMenu, cart, on
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0)
 
   const getCartQuantity = (productId: string) => {
-    const item = cart.find((i) => i.id === productId)
+    const item = cart.find((i) => i.type === "product" && i.id === productId)
     return item ? item.quantity : 0
   }
 
@@ -274,7 +344,7 @@ export function CatalogScreen({ onProductClick, onNavigate, onOpenMenu, cart, on
     if (qty === 0) {
       onAddToCart(product, 1)
     } else {
-      onUpdateQuantity(product.id, qty + 1)
+      onUpdateQuantity(`product:${product.id}`, qty + 1)
     }
 
     setRecentlyAddedId(product.id)
@@ -287,7 +357,7 @@ export function CatalogScreen({ onProductClick, onNavigate, onOpenMenu, cart, on
     if (reserveAction === "add") {
       onAddToCart(reserveProduct, reserveRequestedQuantity)
     } else {
-      onUpdateQuantity(reserveProduct.id, qty + reserveRequestedQuantity)
+      onUpdateQuantity(`product:${reserveProduct.id}`, qty + reserveRequestedQuantity)
     }
     setShowReserveDialog(false)
     setReserveProduct(null)
@@ -373,7 +443,7 @@ export function CatalogScreen({ onProductClick, onNavigate, onOpenMenu, cart, on
             <img
               src="/images/logo.png"
               alt="AFP Pinturas"
-              className="h-10 w-auto object-contain drop-shadow-md"
+              className="mt-1 h-10 w-auto object-contain drop-shadow-md"
             />
           </div>
           <div className="flex justify-end">
@@ -561,7 +631,7 @@ export function CatalogScreen({ onProductClick, onNavigate, onOpenMenu, cart, on
                 {products.map((product) => {
                  const qty = getCartQuantity(product.id)
                  const hasCheckoutPromo = product.promotion?.aplicaEnCheckout && product.promoPrice && product.promotion?.tipo === "porcentaje"
-                 const effectivePrice = hasCheckoutPromo ? product.promoPrice : product.price
+                 const effectivePrice = hasCheckoutPromo ? (product.promoPrice ?? product.price) : product.price
                  const isHighlighted = recentlyAddedId === product.id
                  return (
                    <div
@@ -614,7 +684,7 @@ export function CatalogScreen({ onProductClick, onNavigate, onOpenMenu, cart, on
                               {product.promotion.tipo === "nxm"
                                 ? `${product.promotion.cantidadLleva}x${product.promotion.cantidadPaga}`
                                 : product.promotion.tipo === "combo_fijo"
-                                  ? "COMBO x2"
+                                  ? "COMBO"
                                   : (<><Percent className="mr-1 h-3 w-3" />-{product.promotion.valor}%</>)}
                             </Badge>
                           )}
@@ -625,44 +695,41 @@ export function CatalogScreen({ onProductClick, onNavigate, onOpenMenu, cart, on
                         {product.promotion?.tipo === "combo_fijo" && (
                           <>
                             {(() => {
-                              const partnerCode = getComboPartnerCode(
-                                product.id,
-                                product.promotion?.comboProductoCodigoA,
-                                product.promotion?.comboProductoCodigoB,
-                              )
-                              const partnerMeta = partnerCode
-                                ? productMetaByCode.get(partnerCode) || comboPartnerPreviewByCode[partnerCode]
-                                : null
+                              const comboItems = getComboItemsFromPromotion(product.promotion)
+                              const previewItems = comboItems.map((comboItem) => {
+                                const meta = productMetaByCode.get(comboItem.productoCodigo) || comboPartnerPreviewByCode[comboItem.productoCodigo]
+                                return {
+                                  ...comboItem,
+                                  name: meta?.name || comboItem.productoCodigo,
+                                  image: meta?.image || "/placeholder.svg",
+                                }
+                              })
 
                               return (
-                                <div className="mt-1 flex items-center gap-2">
-                                  <img
-                                    src={product.image || "/placeholder.svg"}
-                                    alt={product.name}
-                                    className="h-6 w-6 rounded-md border border-amber-200 bg-white object-cover"
-                                  />
-                                  <span className="text-[10px] font-semibold text-amber-800">+</span>
-                                  <img
-                                    src={partnerMeta?.image || "/placeholder.svg"}
-                                    alt={partnerMeta?.name || "Producto combo"}
-                                    className="h-6 w-6 rounded-md border border-amber-200 bg-white object-cover"
-                                  />
-                                </div>
+                                <>
+                                  <div className="mt-1 flex items-center gap-2">
+                                    {previewItems.slice(0, 3).map((item, index) => (
+                                      <div key={`${product.id}-${item.productoCodigo}-${index}`} className="flex items-center gap-1.5">
+                                        {index > 0 && <span className="text-[10px] font-semibold text-amber-800">+</span>}
+                                        <img
+                                          src={item.image}
+                                          alt={item.name}
+                                          className="h-6 w-6 rounded-md border border-amber-200 bg-white object-cover"
+                                        />
+                                      </div>
+                                    ))}
+                                    {previewItems.length > 3 && <span className="text-[10px] font-semibold text-amber-700">+{previewItems.length - 3}</span>}
+                                  </div>
+
+                                  <p className="mt-1 text-[10px] font-medium text-amber-700">
+                                    Incluye {previewItems.reduce((sum, item) => sum + Number(item.cantidad || 0), 0)} unidad(es):{" "}
+                                    {previewItems
+                                      .map((item) => (item.cantidad > 1 ? `${item.cantidad}x ${item.name}` : item.name))
+                                      .join(" + ")} por ${Number(product.promotion.comboPrecioFijo || 0).toLocaleString("es-AR")}
+                                  </p>
+                                </>
                               )
                             })()}
-                            <p className="mt-1 text-[10px] font-medium text-amber-700">
-                              Incluye 2 productos: {product.name}
-                              {(() => {
-                                const partnerCode = getComboPartnerCode(
-                                  product.id,
-                                  product.promotion?.comboProductoCodigoA,
-                                  product.promotion?.comboProductoCodigoB,
-                                )
-                                if (!partnerCode) return ""
-                                const partnerMeta = productMetaByCode.get(partnerCode) || comboPartnerPreviewByCode[partnerCode]
-                                return ` + ${partnerMeta?.name || partnerCode}`
-                              })()} por ${Number(product.promotion.comboPrecioFijo || 0).toLocaleString("es-AR")}
-                            </p>
                           </>
                         )}
                       </div>
@@ -683,7 +750,7 @@ export function CatalogScreen({ onProductClick, onNavigate, onOpenMenu, cart, on
                             <button
                               className="flex h-8.5 w-8.5 items-center justify-center rounded-xl text-destructive hover:bg-card"
                               onClick={() => {
-                                if (qty > 0) onUpdateQuantity(product.id, qty - 1)
+                                if (qty > 0) onUpdateQuantity(`product:${product.id}`, qty - 1)
                               }}
                             >
                               <Minus className="w-4 h-4" />
@@ -691,18 +758,27 @@ export function CatalogScreen({ onProductClick, onNavigate, onOpenMenu, cart, on
                             <span className="w-8 text-center text-sm font-bold select-none">
                               {qty}
                             </span>
-                            <button
+                             <button
                               className="flex h-8.5 w-8.5 items-center justify-center rounded-xl text-primary hover:bg-card"
                               onClick={() => handlePlusClick(product, qty)}
-                            >
-                              <Plus className="w-4 h-4" />
-                           </button>
-                         </div>
-                         </div>
-                       </div>
-                     </div>
-                   </div>
-                )
+                             >
+                               <Plus className="w-4 h-4" />
+                            </button>
+                          </div>
+                          </div>
+                        </div>
+                        {product.promotion && (
+                          <button
+                            type="button"
+                            className="mt-2 rounded-lg border border-amber-300 bg-amber-50 px-2 py-1 text-[10px] font-semibold text-amber-800"
+                            onClick={() => onViewPromotion(product)}
+                          >
+                            Ver promoción
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                 )
               })}
             </div>
 

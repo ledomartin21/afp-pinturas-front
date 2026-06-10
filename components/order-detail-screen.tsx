@@ -136,6 +136,13 @@ export function OrderDetailScreen({ order, onBack }: OrderDetailScreenProps) {
                 {order.address.provincia && <p className="text-muted-foreground">{order.address.provincia}</p>}
               </div>
             )}
+            {order.deliveryMethod === "delivery" && (order.comisionistaNombre || order.comisionistaTelefono) && (
+              <div className="rounded-lg bg-muted/40 p-3 text-sm">
+                <p className="font-medium">Comisionista</p>
+                {order.comisionistaNombre && <p className="text-muted-foreground">{order.comisionistaNombre}</p>}
+                {order.comisionistaTelefono && <p className="text-muted-foreground">Tel: {order.comisionistaTelefono}</p>}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -144,13 +151,26 @@ export function OrderDetailScreen({ order, onBack }: OrderDetailScreenProps) {
             <h2 className="font-semibold text-base">Productos</h2>
             <div className="space-y-2">
               {order.items.map((item) => (
-                <div key={`${order.id}-${item.id}`} className="flex items-center gap-3 rounded-lg bg-muted/30 p-2">
+                <div key={`${order.id}-${item.cartKey}`} className="rounded-lg bg-muted/30 p-2">
+                  <div className="flex items-center gap-3">
                   <img src={item.image || "/placeholder.svg"} alt={item.name} className="h-12 w-12 rounded-md object-cover bg-muted" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{item.name}</p>
                     <p className="text-xs text-muted-foreground">Cant: {item.quantity}</p>
                   </div>
                   <p className="text-sm font-bold">${(item.price * item.quantity).toLocaleString("es-AR")}</p>
+                  </div>
+                  {item.type === "promotion" && item.includedItems.length > 0 && (
+                    <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 p-2">
+                      <p className="text-[11px] font-semibold text-amber-800">Incluye:</p>
+                      {item.includedItems.map((component) => (
+                        <p key={`${item.cartKey}-${component.productId}`} className="text-[11px] text-amber-700">
+                          - {component.quantity} x {component.name}
+                          {component.brand ? ` (${component.brand})` : ""}
+                        </p>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

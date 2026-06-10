@@ -9,9 +9,10 @@ export type CreatePedidoPayload = {
   metodoPago: "transfer" | "cash"
   subtotal: number
   descuentoTotal?: number
-  costoEnvio?: number
   total: number
   observaciones?: string
+  comisionistaNombre?: string
+  comisionistaTelefono?: string
   direccionEntrega?: {
     calle: string
     ciudad: string
@@ -20,8 +21,18 @@ export type CreatePedidoPayload = {
   }
   detalles: Array<{
     productoId: string
+    tipoItem?: "product" | "promotion"
+    promocionId?: number
+    descripcionItem?: string
+    precioUnitario?: number
     cantidad: number
     descuentoPorcentaje?: number
+    componentes?: Array<{
+      productoId: string
+      nombre: string
+      cantidad: number
+      marca?: string
+    }>
   }>
 }
 
@@ -37,6 +48,8 @@ export type PedidoResponse = {
   descuentoTotal: number
   costoEnvio: number
   total: number
+  comisionistaNombre?: string | null
+  comisionistaTelefono?: string | null
   direccionEntrega?: {
     calle: string
     ciudad: string
@@ -47,6 +60,15 @@ export type PedidoResponse = {
     id: string
     pedidoId?: string
     productoId: string
+    tipoItem?: "product" | "promotion"
+    promocionId?: number | null
+    descripcionItem?: string | null
+    detallePromocion?: Array<{
+      productoId: string
+      nombre: string
+      cantidad: number
+      marca?: string
+    }> | null
     cantidad: number
     precioUnitario: number
     descuentoPorcentaje: number
@@ -79,6 +101,7 @@ async function loadProductsForOrderResponses(pedidos: PedidoResponse[]) {
     new Set(
       pedidos
         .flatMap((pedido) => pedido.detalles || [])
+        .filter((detalle) => detalle.tipoItem !== "promotion")
         .map((detalle) => detalle.productoId.trim())
         .filter(Boolean),
     ),
@@ -96,8 +119,32 @@ function mapPedidoToOrder(
   productsById: Map<string, Awaited<ReturnType<typeof productsService.getProducts>>[number]>,
 ): Order {
   const items = (pedido.detalles || []).map((detalle) => {
+    if (detalle.tipoItem === "promotion") {
+      return {
+        type: "promotion" as const,
+        cartKey: `promotion:${detalle.promocionId || detalle.productoId}`,
+        id: detalle.productoId.trim(),
+        promotionId: Number(detalle.promocionId || 0),
+        promotionName: (detalle.descripcionItem || `Promoción ${detalle.promocionId || ""}`).trim(),
+        name: (detalle.descripcionItem || `Promoción ${detalle.promocionId || ""}`).trim(),
+        price: Number(detalle.precioUnitario || 0),
+        stock: 9999,
+        image: "/placeholder.svg",
+        category: "Promociones",
+        quantity: detalle.cantidad,
+        includedItems: (detalle.detallePromocion || []).map((component) => ({
+          productId: component.productoId,
+          name: component.nombre,
+          quantity: component.cantidad,
+          brand: component.marca,
+        })),
+      }
+    }
+
     const product = productsById.get(detalle.productoId.trim())
     return {
+      type: "product" as const,
+      cartKey: `product:${detalle.productoId.trim()}`,
       id: detalle.productoId.trim(),
       name: product?.name || `Producto ${detalle.productoId.trim()}`,
       price: Number(detalle.precioUnitario || 0),
@@ -120,6 +167,8 @@ function mapPedidoToOrder(
     paymentMethod: pedido.metodoPago,
     paymentStatus: PAYMENT_STATUS_MAP[pedido.estadoPago] || "pending",
     address: pedido.direccionEntrega || null,
+    comisionistaNombre: pedido.comisionistaNombre || undefined,
+    comisionistaTelefono: pedido.comisionistaTelefono || undefined,
   }
 }
 

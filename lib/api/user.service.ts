@@ -1,6 +1,6 @@
 import { apiClient } from "./client"
 import { API_ENDPOINTS } from "../config/api"
-import type { UserProfile, UpdateProfilePayload } from "../types"
+import type { UserProfile, UpdateProfilePayload, AccountStatus } from "../types"
 
 class UserService {
   async getProfile(): Promise<UserProfile> {
@@ -9,6 +9,10 @@ class UserService {
 
   async updateProfile(data: UpdateProfilePayload): Promise<UserProfile> {
     return apiClient.put<UserProfile>(API_ENDPOINTS.USER.UPDATE, data)
+  }
+
+  async getAccountStatus(): Promise<AccountStatus> {
+    return apiClient.get<AccountStatus>(API_ENDPOINTS.USER.ACCOUNT)
   }
 }
 

@@ -1,6 +1,6 @@
 export const API_CONFIG = {
   BASE_URL: "/api",
-  DOWNLOAD_BASE_URL: process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") || "http://localhost:3002",
+  DOWNLOAD_BASE_URL: process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") || "http://localhost:3000",
   TIMEOUT: 30000,
   HEADERS: {
     "Content-Type": "application/json",
@@ -43,6 +43,11 @@ export const API_ENDPOINTS = {
   USER: {
     PROFILE: "/user/profile",
     UPDATE: "/user/profile",
+    ACCOUNT: "/user/account",
+  },
+  // Clientes potenciales
+  CLIENTE_POTENCIAL: {
+    CREATE: "/cliente-potencial",
   },
   // Carruseles
   CAROUSEL: {

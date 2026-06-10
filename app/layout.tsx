@@ -3,6 +3,7 @@ import type { Metadata } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { PwaRegister } from "@/components/pwa-register"
+import { InstallPrompt } from "@/components/install-prompt"
 import "./globals.css"
 
 const _geist = Geist({ subsets: ["latin"] })
@@ -47,6 +48,7 @@ export default function RootLayout({
       <body className={`font-sans antialiased`}>
         {children}
         <PwaRegister />
+        <InstallPrompt />
         <Analytics />
       </body>
     </html>
