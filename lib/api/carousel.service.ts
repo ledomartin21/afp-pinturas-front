@@ -63,6 +63,28 @@ class CarouselService {
     window.URL.revokeObjectURL(url)
   }
 
+  async downloadPriceListExcel(): Promise<void> {
+    const response = await fetch(`${API_CONFIG.BASE_URL}${API_ENDPOINTS.FLYER.PRICE_LIST_EXCEL}`, {
+      method: "GET",
+      credentials: "include",
+    })
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => "")
+      throw new Error(text || "No se pudo descargar la lista de precios")
+    }
+
+    const blob = await response.blob()
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.href = url
+    link.download = "lista-precios.xlsx"
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.URL.revokeObjectURL(url)
+  }
+
   async getFlyers(): Promise<Flyer[]> {
     return apiClient.get<Flyer[]>(API_ENDPOINTS.FLYER.LIST)
   }

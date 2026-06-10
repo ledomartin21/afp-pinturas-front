@@ -133,7 +133,16 @@ export function HomeScreen({ onNavigate, onSearchNavigate, onCatalogPresetNaviga
     onSearchNavigate(searchTerm.trim())
   }
 
-  const handleDownloadFile = async (flyer: Flyer) => {
+  const handleDownloadFile = async (flyer: Flyer, index: number) => {
+    if (index === 0) {
+      try {
+        await carouselService.downloadPriceListExcel()
+      } catch {
+        // noop
+      }
+      return
+    }
+
     if (!flyer.archivoNombreOriginal && !flyer.archivoRuta) {
       return
     }
@@ -237,13 +246,13 @@ export function HomeScreen({ onNavigate, onSearchNavigate, onCatalogPresetNaviga
                 className="absolute inset-0 flex transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]"
                 style={{ transform: `translateX(-${downloadIndex * 100}%)` }}
               >
-                {downloadFlyers.map((flyer) => (
+                {downloadFlyers.map((flyer, index) => (
                   <button
                     key={flyer.id}
                     type="button"
-                    onClick={() => void handleDownloadFile(flyer)}
-                    className={`relative min-w-full ${flyer.archivoNombreOriginal || flyer.archivoRuta ? "cursor-pointer" : "cursor-default"}`}
-                    aria-label={flyer.archivoNombreOriginal || flyer.archivoRuta ? `Descargar archivo de ${flyer.titulo || "flyer"}` : flyer.titulo || "Flyer"}
+                    onClick={() => void handleDownloadFile(flyer, index)}
+                    className={`relative min-w-full ${index === 0 || flyer.archivoNombreOriginal || flyer.archivoRuta ? "cursor-pointer" : "cursor-default"}`}
+                    aria-label={index === 0 ? "Descargar lista de precios" : flyer.archivoNombreOriginal || flyer.archivoRuta ? `Descargar archivo de ${flyer.titulo || "flyer"}` : flyer.titulo || "Flyer"}
                   >
                     <img
                       src={flyer.url}

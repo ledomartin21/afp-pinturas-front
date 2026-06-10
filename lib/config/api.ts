@@ -64,5 +64,6 @@ export const API_ENDPOINTS = {
     CREATE: "/flyer",
     DELETE: (id: number) => `/flyer/${id}`,
     DOWNLOAD: (id: number) => `/flyer/${id}/download`,
+    PRICE_LIST_EXCEL: "/flyer/price-list/excel",
   },
 };
