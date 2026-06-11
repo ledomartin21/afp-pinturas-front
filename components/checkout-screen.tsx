@@ -16,17 +16,19 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { ArrowLeft, MapPin, Truck, Store, Banknote } from "lucide-react"
+import { ArrowLeft, MapPin, Truck, Store, Banknote, Loader2, Search } from "lucide-react"
 import type { CartItem } from "@/app/page"
 import type { CreatePedidoPayload } from "@/lib/api/orders.service"
 import { locationService, userService } from "@/lib/api"
 import { calculateLinePricing } from "@/lib/promotion-pricing"
+import type { CustomerAccountOption } from "@/lib/types"
 
 interface CheckoutScreenProps {
   items: CartItem[]
   onConfirm: (payload: CreatePedidoPayload) => Promise<void> | void
   onTransferPayment: (payload: CreatePedidoPayload) => Promise<void> | void
   onBack: () => void
+  canSelectCustomerAccount?: boolean
 }
 
 type AddressDraft = {
@@ -52,7 +54,7 @@ function parseDomicilio(domicilio?: string | null): { address: string; postalCod
   }
 }
 
-export function CheckoutScreen({ items, onConfirm, onTransferPayment, onBack }: CheckoutScreenProps) {
+export function CheckoutScreen({ items, onConfirm, onTransferPayment, onBack, canSelectCustomerAccount = false }: CheckoutScreenProps) {
   const [deliveryMethod, setDeliveryMethod] = useState<"delivery" | "pickup">("delivery")
   const [paymentMethod, setPaymentMethod] = useState<"transfer" | "cash">("transfer")
   const [address, setAddress] = useState("")
@@ -66,6 +68,10 @@ export function CheckoutScreen({ items, onConfirm, onTransferPayment, onBack }: 
   const [showAddressDecision, setShowAddressDecision] = useState(false)
   const [pendingPayload, setPendingPayload] = useState<CreatePedidoPayload | null>(null)
   const [baseAddress, setBaseAddress] = useState<AddressDraft | null>(null)
+  const [customerAccountQuery, setCustomerAccountQuery] = useState("")
+  const [customerAccountOptions, setCustomerAccountOptions] = useState<CustomerAccountOption[]>([])
+  const [selectedCustomerAccount, setSelectedCustomerAccount] = useState<CustomerAccountOption | null>(null)
+  const [isSearchingCustomerAccounts, setIsSearchingCustomerAccounts] = useState(false)
 
   const subtotal = items.reduce((sum, item) => sum + calculateLinePricing(item).finalTotal, 0)
   const deliveryFee = 0
@@ -78,6 +84,13 @@ export function CheckoutScreen({ items, onConfirm, onTransferPayment, onBack }: 
       const profile = await userService.getProfile().catch(() => null)
       if (!profile || !mounted) {
         return
+      }
+
+      if (canSelectCustomerAccount && profile.cuenta?.trim()) {
+        const currentAccount = profile.cuenta.trim()
+        const matches = await userService.searchCustomerAccounts(currentAccount, 5).catch(() => [])
+        const exactMatch = matches.find((option) => option.cuenta.trim() === currentAccount)
+        setSelectedCustomerAccount(exactMatch || { cuenta: currentAccount, nombre: "", label: currentAccount })
       }
 
       const parsed = parseDomicilio(profile.domicilio)
@@ -117,7 +130,36 @@ export function CheckoutScreen({ items, onConfirm, onTransferPayment, onBack }: 
     return () => {
       mounted = false
     }
-  }, [])
+  }, [canSelectCustomerAccount])
+
+  useEffect(() => {
+    if (!canSelectCustomerAccount) {
+      setCustomerAccountOptions([])
+      setIsSearchingCustomerAccounts(false)
+      return
+    }
+
+    const normalizedQuery = customerAccountQuery.trim()
+    if (normalizedQuery.length < 2) {
+      setCustomerAccountOptions([])
+      setIsSearchingCustomerAccounts(false)
+      return
+    }
+
+    const timer = window.setTimeout(async () => {
+      try {
+        setIsSearchingCustomerAccounts(true)
+        const results = await userService.searchCustomerAccounts(normalizedQuery, 10)
+        setCustomerAccountOptions(results)
+      } catch {
+        setCustomerAccountOptions([])
+      } finally {
+        setIsSearchingCustomerAccounts(false)
+      }
+    }, 300)
+
+    return () => window.clearTimeout(timer)
+  }, [canSelectCustomerAccount, customerAccountQuery])
 
   const isAddressChanged = () => {
     if (!baseAddress) return false
@@ -135,6 +177,7 @@ export function CheckoutScreen({ items, onConfirm, onTransferPayment, onBack }: 
     const discountTotal = items.reduce((sum, item) => sum + calculateLinePricing(item).discountAmount, 0)
 
     const payload: CreatePedidoPayload = {
+      cuentaCliente: canSelectCustomerAccount ? selectedCustomerAccount?.cuenta : undefined,
       metodoEntrega: deliveryMethod,
       metodoPago: paymentMethod,
       subtotal,
@@ -359,6 +402,68 @@ export function CheckoutScreen({ items, onConfirm, onTransferPayment, onBack }: 
               </CardContent>
             </Card>
           </>
+        )}
+
+        {canSelectCustomerAccount && (
+          <Card className="border-2 border-primary/20">
+            <CardContent className="space-y-4 p-4">
+              <div className="flex items-center gap-2">
+                <Search className="h-5 w-5 text-accent-foreground" />
+                <div>
+                  <h2 className="font-semibold text-lg">Cuenta cliente</h2>
+                  <p className="text-xs text-muted-foreground">Busca por cuenta o nombre. Si no cambias nada, se usa la cuenta del usuario actual.</p>
+                </div>
+              </div>
+
+              {selectedCustomerAccount && (
+                <div className="rounded-xl border border-primary/15 bg-primary/5 px-3 py-2 text-sm">
+                  <p className="font-medium text-foreground">Seleccionada: {selectedCustomerAccount.label}</p>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label htmlFor="customer-account-search">Buscar cliente</Label>
+                <Input
+                  id="customer-account-search"
+                  value={customerAccountQuery}
+                  onChange={(e) => setCustomerAccountQuery(e.target.value)}
+                  placeholder="Ej: 000123 o Pintureria Centro"
+                  className="h-12"
+                />
+              </div>
+
+              {isSearchingCustomerAccounts ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Buscando cuentas...
+                </div>
+              ) : null}
+
+              {!isSearchingCustomerAccounts && customerAccountQuery.trim().length >= 2 && customerAccountOptions.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No encontramos cuentas para esa búsqueda.</p>
+              ) : null}
+
+              {customerAccountOptions.length > 0 && (
+                <div className="space-y-2 rounded-xl border bg-muted/20 p-2">
+                  {customerAccountOptions.map((option) => (
+                    <button
+                      key={`${option.cuenta}-${option.nombre}`}
+                      type="button"
+                      onClick={() => {
+                        setSelectedCustomerAccount(option)
+                        setCustomerAccountQuery(option.label)
+                        setCustomerAccountOptions([])
+                      }}
+                      className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-muted"
+                    >
+                      <span className="font-medium text-foreground">{option.label}</span>
+                      <span className="text-xs text-primary">Usar</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         )}
 
         <Card className="border-2">

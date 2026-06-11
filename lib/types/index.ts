@@ -143,6 +143,12 @@ export type LoginResponse = {
   rolNombre?: string
 }
 
+export type CustomerAccountOption = {
+  cuenta: string
+  nombre: string
+  label: string
+}
+
 export type PotentialClient = {
   id: number
   nombre: string

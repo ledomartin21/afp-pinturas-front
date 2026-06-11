@@ -583,52 +583,17 @@ export function CatalogScreen({ onProductClick, onViewPromotion, onNavigate, onO
               </div>
             )}
 
-            {/* Info de resultados + Paginación */}
+            {/* Info de resultados */}
              {totalProducts > 0 && (
                <p className="text-xs text-muted-foreground text-center pt-2">
-                 {filterPreset === "promotions"
-                   ? `${totalProducts} promoción${totalProducts !== 1 ? "es" : ""} encontrada${totalProducts !== 1 ? "s" : ""}`
-                   : `${totalProducts} producto${totalProducts !== 1 ? "s" : ""} encontrado${totalProducts !== 1 ? "s" : ""}`}
-               </p>
-             )}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-center py-4 gap-1">
-                <button
-                  className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted disabled:opacity-30"
-                  disabled={currentPage === 1}
-                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                >
-                  <ChevronLeft className="h-5 w-5" />
-                </button>
-                {getPaginationItems().map((item, idx) =>
-                  item === "..." ? (
-                    <span key={`dots-${idx}`} className="px-1 text-muted-foreground">...</span>
-                  ) : (
-                    <button
-                      key={`page-${item}`}
-                      className={`flex h-10 w-10 items-center justify-center rounded-lg font-bold text-sm transition-colors ${
-                        currentPage === item
-                          ? "bg-primary text-white"
-                          : "text-foreground hover:bg-muted"
-                      }`}
-                      onClick={() => setCurrentPage(item)}
-                    >
-                      {item}
-                    </button>
-                  )
-                )}
-                <button
-                  className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted disabled:opacity-30"
-                  disabled={currentPage === totalPages}
-                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                >
-                  <ChevronRight className="h-5 w-5" />
-                </button>
-              </div>
-            )}
+                  {filterPreset === "promotions"
+                    ? `${totalProducts} promoción${totalProducts !== 1 ? "es" : ""} encontrada${totalProducts !== 1 ? "s" : ""}`
+                    : `${totalProducts} producto${totalProducts !== 1 ? "s" : ""} encontrado${totalProducts !== 1 ? "s" : ""}`}
+                </p>
+              )}
 
-              <div className="space-y-2.5">
-                {products.map((product) => {
+               <div className="space-y-2.5">
+                 {products.map((product) => {
                  const qty = getCartQuantity(product.id)
                  const hasCheckoutPromo = product.promotion?.aplicaEnCheckout && product.promoPrice && product.promotion?.tipo === "porcentaje"
                  const effectivePrice = hasCheckoutPromo ? (product.promoPrice ?? product.price) : product.price
@@ -779,8 +744,42 @@ export function CatalogScreen({ onProductClick, onViewPromotion, onNavigate, onO
                       </div>
                     </div>
                  )
-              })}
-            </div>
+               })}
+             </div>
+
+            {products.length > 0 && totalPages > 1 && (
+              <div className="flex items-center justify-center gap-1 py-4">
+                <button
+                  className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted disabled:opacity-30"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+                {getPaginationItems().map((item, idx) =>
+                  item === "..." ? (
+                    <span key={`dots-${idx}`} className="px-1 text-muted-foreground">...</span>
+                  ) : (
+                    <button
+                      key={`page-${item}`}
+                      className={`flex h-10 w-10 items-center justify-center rounded-lg font-bold text-sm transition-colors ${
+                        currentPage === item ? "bg-primary text-white" : "text-foreground hover:bg-muted"
+                      }`}
+                      onClick={() => setCurrentPage(item)}
+                    >
+                      {item}
+                    </button>
+                  ),
+                )}
+                <button
+                  className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted disabled:opacity-30"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </button>
+              </div>
+            )}
 
             {totalProducts === 0 && (
               <div className="text-center py-12">

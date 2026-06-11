@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
-const backendUrl = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002").replace(/\/$/, "")
+const backendUrl = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002")
+  .replace(/\/api\/?$/, "")
+  .replace(/\/$/, "")
 
 const nextConfig = {
   typescript: {

@@ -1,15 +1,60 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import { ClipboardList, Menu, ReceiptText, Search, ShoppingBag, ShoppingCart } from "lucide-react"
 import type { Screen } from "@/app/page"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { getCategoryIcon } from "@/lib/config/category-icons"
-import { carouselService, productsService, userService } from "@/lib/api"
+import { carouselService, userService } from "@/lib/api"
 import type { Carrusel, Flyer } from "@/lib/types"
 
-const VISIBLE_CATEGORIES = 3
+type DownloadSlide =
+  | {
+      id: string
+      title: string
+      image: string
+      type: "price-list"
+    }
+  | {
+      id: string
+      title: string
+      image: string
+      type: "flyer"
+      flyer: Flyer
+    }
+
+const NOVEDADES_TILES: Array<{
+  id: string
+  title: string
+  image: string
+  action: "promotions" | "afp" | "all"
+}> = [
+  {
+    id: "novedades-promociones",
+    title: "Promociones",
+    image: "/images/novedades/promociones.png",
+    action: "promotions",
+  },
+  {
+    id: "novedades-afp",
+    title: "Linea AFP",
+    image: "/images/novedades/afp.png",
+    action: "afp",
+  },
+  {
+    id: "novedades-catalogo",
+    title: "Catalogo completo",
+    image: "/images/novedades/catalogo.png",
+    action: "all",
+  },
+]
+
+const PRICE_LIST_SLIDE: DownloadSlide = {
+  id: "price-list-static",
+  title: "Lista de precios",
+  image: "/images/flyers/lista-precios.png",
+  type: "price-list",
+}
 
 interface HomeScreenProps {
   onNavigate: (screen: Screen) => void
@@ -20,8 +65,6 @@ interface HomeScreenProps {
 }
 
 export function HomeScreen({ onNavigate, onSearchNavigate, onCatalogPresetNavigate, onOpenMenu, cartCount }: HomeScreenProps) {
-  const [carousels, setCarousels] = useState<Carrusel[]>([])
-  const [categories, setCategories] = useState<string[]>([])
   const [greetingName, setGreetingName] = useState("")
   const [searchTerm, setSearchTerm] = useState("")
   const [downloadsCarousel, setDownloadsCarousel] = useState<Carrusel | null>(null)
@@ -30,16 +73,11 @@ export function HomeScreen({ onNavigate, onSearchNavigate, onCatalogPresetNaviga
   useEffect(() => {
     const loadHeaderData = async () => {
       try {
-        const [catalogs, profile] = await Promise.all([
-          productsService.getCatalogs(),
-          userService.getProfile().catch(() => null),
-        ])
+        const profile = await userService.getProfile().catch(() => null)
 
-        setCategories(Array.from(catalogs.rubroMap.values()))
         const sourceName = profile?.razonSocial?.trim() || profile?.nombreUsuario?.trim() || ""
         setGreetingName(sourceName.split(" ").slice(0, 2).join(" "))
       } catch {
-        setCategories([])
         setGreetingName("")
       }
     }
@@ -51,18 +89,10 @@ export function HomeScreen({ onNavigate, onSearchNavigate, onCatalogPresetNaviga
     const loadCarousels = async () => {
       try {
         const allCarousels = await carouselService.getCarousels()
-        const targetCarousel = allCarousels.find(
-          (carousel) => carousel.activo && /catalog|cat[aá]logo|rubro|novedad/i.test(carousel.nombre || ""),
-        )
-
-        if (!targetCarousel) {
-          setCarousels([])
-          setDownloadsCarousel(null)
-          return
-        }
+        const targetCarousel = allCarousels.find((carousel) => carousel.id === 1)
 
         const [detailed, downloadsDetailed] = await Promise.all([
-          carouselService.getCarouselById(targetCarousel.id),
+          targetCarousel ? carouselService.getCarouselById(targetCarousel.id) : Promise.resolve(null),
           (() => {
             const explicitDownloads = allCarousels.find((carousel) => carousel.id === 1)
             if (!explicitDownloads) return Promise.resolve(null)
@@ -70,10 +100,8 @@ export function HomeScreen({ onNavigate, onSearchNavigate, onCatalogPresetNaviga
           })(),
         ])
 
-        setCarousels((detailed.flyers || []).length > 0 ? [detailed] : [])
-        setDownloadsCarousel((downloadsDetailed?.flyers || []).length > 0 ? downloadsDetailed : null)
+        setDownloadsCarousel((downloadsDetailed?.flyers || detailed?.flyers || []).length > 0 ? (downloadsDetailed ?? detailed) : null)
       } catch {
-        setCarousels([])
         setDownloadsCarousel(null)
       }
     }
@@ -81,49 +109,30 @@ export function HomeScreen({ onNavigate, onSearchNavigate, onCatalogPresetNaviga
     void loadCarousels()
   }, [])
 
-  const downloadFlyers = downloadsCarousel?.flyers ?? []
+  const downloadSlides: DownloadSlide[] = [
+    PRICE_LIST_SLIDE,
+    ...((downloadsCarousel?.flyers ?? []).map((flyer) => ({
+      id: `flyer-${flyer.id}`,
+      title: flyer.titulo || "Flyer",
+      image: flyer.url,
+      type: "flyer" as const,
+      flyer,
+    })) as DownloadSlide[]),
+  ]
+
   useEffect(() => {
-    if (downloadFlyers.length <= 1) return
+    if (downloadSlides.length <= 1) return
 
     const timer = window.setInterval(() => {
-      setDownloadIndex((prev) => (prev + 1) % downloadFlyers.length)
+      setDownloadIndex((prev) => (prev + 1) % downloadSlides.length)
     }, 4500)
 
     return () => window.clearInterval(timer)
-  }, [downloadFlyers.length])
+  }, [downloadSlides.length])
 
   useEffect(() => {
     setDownloadIndex(0)
-  }, [downloadsCarousel?.id])
-
-  const configuredCarousel = useMemo(
-    () => carousels.find((carousel) => /catalog|cat[aá]logo|rubro|novedad/i.test(carousel.nombre || "")) ?? null,
-    [carousels],
-  )
-
-  const tiles = useMemo(() => {
-    const fallbackTitles = ["Promociones", "Linea AFP", "Catalogo completo"]
-    const fallbackActions: Array<"promotions" | "afp" | "all"> = ["promotions", "afp", "all"]
-
-    if (configuredCarousel?.flyers?.length) {
-      return Array.from({ length: VISIBLE_CATEGORIES }, (_, index) => {
-        const flyer = configuredCarousel.flyers?.[index]
-        return {
-          id: flyer ? `flyer-${flyer.id}` : `fallback-${index}`,
-          title: flyer?.titulo || fallbackTitles[index],
-          image: flyer?.url || null,
-          action: fallbackActions[index],
-        }
-      })
-    }
-
-    return Array.from({ length: VISIBLE_CATEGORIES }, (_, index) => ({
-      id: categories[index] || `fallback-category-${index}`,
-      title: fallbackTitles[index],
-      image: null,
-      action: fallbackActions[index],
-    }))
-  }, [configuredCarousel, categories])
+  }, [downloadsCarousel?.id, downloadSlides.length])
 
   const handleTileNavigate = (action: "promotions" | "afp" | "all") => {
     onCatalogPresetNavigate(action)
@@ -133,8 +142,8 @@ export function HomeScreen({ onNavigate, onSearchNavigate, onCatalogPresetNaviga
     onSearchNavigate(searchTerm.trim())
   }
 
-  const handleDownloadFile = async (flyer: Flyer, index: number) => {
-    if (index === 0) {
+  const handleDownloadSlide = async (slide: DownloadSlide) => {
+    if (slide.type === "price-list") {
       try {
         await carouselService.downloadPriceListExcel()
       } catch {
@@ -143,6 +152,7 @@ export function HomeScreen({ onNavigate, onSearchNavigate, onCatalogPresetNaviga
       return
     }
 
+    const flyer = slide.flyer
     if (!flyer.archivoNombreOriginal && !flyer.archivoRuta) {
       return
     }
@@ -239,24 +249,24 @@ export function HomeScreen({ onNavigate, onSearchNavigate, onCatalogPresetNaviga
           </div>
         </section>
 
-        {downloadFlyers.length > 0 && (
+        {downloadSlides.length > 0 && (
           <section className="mt-5 px-4">
             <div className="relative w-full overflow-hidden rounded-[1.35rem] bg-muted shadow-[0_12px_26px_rgba(15,23,42,0.12)] aspect-[16/7]">
               <div
                 className="absolute inset-0 flex transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]"
                 style={{ transform: `translateX(-${downloadIndex * 100}%)` }}
               >
-                {downloadFlyers.map((flyer, index) => (
+                {downloadSlides.map((slide) => (
                   <button
-                    key={flyer.id}
+                    key={slide.id}
                     type="button"
-                    onClick={() => void handleDownloadFile(flyer, index)}
-                    className={`relative min-w-full ${index === 0 || flyer.archivoNombreOriginal || flyer.archivoRuta ? "cursor-pointer" : "cursor-default"}`}
-                    aria-label={index === 0 ? "Descargar lista de precios" : flyer.archivoNombreOriginal || flyer.archivoRuta ? `Descargar archivo de ${flyer.titulo || "flyer"}` : flyer.titulo || "Flyer"}
+                    onClick={() => void handleDownloadSlide(slide)}
+                    className={`relative min-w-full ${slide.type === "price-list" || slide.flyer.archivoNombreOriginal || slide.flyer.archivoRuta ? "cursor-pointer" : "cursor-default"}`}
+                    aria-label={slide.type === "price-list" ? "Descargar lista de precios" : slide.flyer.archivoNombreOriginal || slide.flyer.archivoRuta ? `Descargar archivo de ${slide.title}` : slide.title}
                   >
                     <img
-                      src={flyer.url}
-                      alt={flyer.titulo || "Flyer"}
+                      src={slide.image}
+                      alt={slide.title}
                       className="h-full w-full object-cover"
                     />
                     <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/10 via-transparent to-transparent" />
@@ -264,11 +274,11 @@ export function HomeScreen({ onNavigate, onSearchNavigate, onCatalogPresetNaviga
                 ))}
               </div>
             </div>
-            {downloadFlyers.length > 1 && (
+            {downloadSlides.length > 1 && (
               <div className="mt-2.5 flex items-center justify-center gap-1.5">
-                {downloadFlyers.map((flyer, idx) => (
+                {downloadSlides.map((slide, idx) => (
                   <button
-                    key={`dot-${flyer.id}`}
+                    key={`dot-${slide.id}`}
                     type="button"
                     aria-label={`Ver flyer ${idx + 1}`}
                     onClick={() => setDownloadIndex(idx)}
@@ -286,32 +296,23 @@ export function HomeScreen({ onNavigate, onSearchNavigate, onCatalogPresetNaviga
           </div>
 
           <div className="grid grid-cols-3 gap-2.5">
-            {tiles.map((tile) => {
-              const CategoryIcon = getCategoryIcon(tile.title)
-              return (
-                  <button
-                    key={tile.id}
-                    type="button"
-                    onClick={() => handleTileNavigate(tile.action)}
-                    className="relative aspect-square overflow-hidden rounded-[1.3rem] bg-card text-left shadow-[0_10px_22px_rgba(15,23,42,0.06)] transition-transform active:scale-[0.98]"
-                  >
-                    <div className="absolute inset-0 overflow-hidden rounded-[1.3rem] bg-muted leading-none">
-                      {tile.image ? (
-                        <img
-                          src={tile.image}
-                          alt={tile.title}
-                          className="absolute inset-[-1px] block h-[calc(100%+2px)] w-[calc(100%+2px)] object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center bg-primary/8 text-primary">
-                          <CategoryIcon className="h-7 w-7" />
-                        </div>
-                      )}
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
+            {NOVEDADES_TILES.map((tile) => (
+              <button
+                key={tile.id}
+                type="button"
+                onClick={() => handleTileNavigate(tile.action)}
+                className="relative aspect-square overflow-hidden rounded-[1.3rem] bg-card text-left shadow-[0_10px_22px_rgba(15,23,42,0.06)] transition-transform active:scale-[0.98]"
+              >
+                <div className="absolute inset-0 overflow-hidden rounded-[1.3rem] bg-muted leading-none">
+                  <img
+                    src={tile.image}
+                    alt={tile.title}
+                    className="absolute inset-[-1px] block h-[calc(100%+2px)] w-[calc(100%+2px)] object-cover"
+                  />
+                </div>
+              </button>
+            ))}
+          </div>
         </section>
 
         <section className="mt-5 px-4">

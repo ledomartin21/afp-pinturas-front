@@ -1,6 +1,6 @@
 import { apiClient } from "./client"
 import { API_ENDPOINTS } from "../config/api"
-import type { UserProfile, UpdateProfilePayload, AccountStatus } from "../types"
+import type { UserProfile, UpdateProfilePayload, AccountStatus, CustomerAccountOption } from "../types"
 
 class UserService {
   async getProfile(): Promise<UserProfile> {
@@ -13,6 +13,16 @@ class UserService {
 
   async getAccountStatus(): Promise<AccountStatus> {
     return apiClient.get<AccountStatus>(API_ENDPOINTS.USER.ACCOUNT)
+  }
+
+  async searchCustomerAccounts(query: string, limit = 10): Promise<CustomerAccountOption[]> {
+    const params = new URLSearchParams()
+    if (query.trim()) {
+      params.set("q", query.trim())
+    }
+    params.set("limit", String(limit))
+
+    return apiClient.get<CustomerAccountOption[]>(`${API_ENDPOINTS.USER.CUSTOMER_ACCOUNTS}?${params.toString()}`)
   }
 }
 

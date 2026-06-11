@@ -131,12 +131,14 @@ type CatalogNavigationState = {
 }
 
 export default function Home() {
-  const ADMIN_ROLE_NAME = "administrador"
+  const ADMIN_ROLE_NAMES = ["administrador", "root"]
+  const PRIVILEGED_ORDER_ROLE_NAMES = ["administrador", "root", "empleado"]
   const [currentScreen, setCurrentScreen] = useState<Screen>("login")
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [cart, setCart] = useState<CartItem[]>([])
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [canManageSpecialOrders, setCanManageSpecialOrders] = useState(false)
   const [isBootstrappingSession, setIsBootstrappingSession] = useState(true)
   const [lastOrderTotal, setLastOrderTotal] = useState(0)
   const [pendingTransferOrder, setPendingTransferOrder] = useState<CreatePedidoPayload | null>(null)
@@ -147,6 +149,14 @@ export default function Home() {
   const [approvedReserveProducts, setApprovedReserveProducts] = useState<string[]>([])
   const catalogNavigationTokenRef = useRef(0)
 
+  const resolveRoleFlags = (rolId: number, rolNombreRaw?: string) => {
+    const roleName = (rolNombreRaw || "").trim().toLowerCase()
+    return {
+      isAdminRole: roleName ? ADMIN_ROLE_NAMES.includes(roleName) : rolId === 1 || rolId === 3,
+      canManageOrders: roleName ? PRIVILEGED_ORDER_ROLE_NAMES.includes(roleName) : rolId === 1 || rolId === 3,
+    }
+  }
+
   useEffect(() => {
     const bootstrapSession = async () => {
       const refreshed = await authService.refresh()
@@ -156,6 +166,7 @@ export default function Home() {
         localStorage.removeItem("usuarioId")
         setIsLoggedIn(false)
         setIsAdmin(false)
+        setCanManageSpecialOrders(false)
         setCurrentScreen("login")
         setIsBootstrappingSession(false)
         return
@@ -163,8 +174,10 @@ export default function Home() {
 
       const rolId = Number(localStorage.getItem("rolId") || 0)
       const rolNombre = (localStorage.getItem("rolNombre") || "").toLowerCase()
+      const { isAdminRole, canManageOrders } = resolveRoleFlags(rolId, rolNombre)
       setIsLoggedIn(true)
-      setIsAdmin(rolNombre ? rolNombre === ADMIN_ROLE_NAME : rolId === 1)
+      setIsAdmin(isAdminRole)
+      setCanManageSpecialOrders(canManageOrders)
       setCurrentScreen("home")
       setIsBootstrappingSession(false)
     }
@@ -194,8 +207,10 @@ export default function Home() {
     } else {
       localStorage.removeItem("rolNombre")
     }
+    const { isAdminRole, canManageOrders } = resolveRoleFlags(rolId, rolNombre)
     setIsLoggedIn(true)
-    setIsAdmin((rolNombre || "").toLowerCase() === ADMIN_ROLE_NAME || (!rolNombre && rolId === 1))
+    setIsAdmin(isAdminRole)
+    setCanManageSpecialOrders(canManageOrders)
     navigateToScreen("home")
   }
 
@@ -419,6 +434,7 @@ export default function Home() {
     localStorage.removeItem("usuarioId")
     setIsLoggedIn(false)
     setIsAdmin(false)
+    setCanManageSpecialOrders(false)
     setApprovedReserveProducts([])
     setSelectedPromotion(null)
     navigateToScreen("login")
@@ -485,7 +501,7 @@ export default function Home() {
             onProductClick={handleProductClick}
             onNavigate={navigateToScreen}
             cartCount={cart.reduce((sum, item) => sum + item.quantity, 0)}
-            isAdmin={isAdmin}
+            isAdmin={canManageSpecialOrders}
             isReserveApproved={isReserveApproved}
             onApproveReserve={approveReserveForProduct}
             onViewPromotion={handleViewPromotion}
@@ -508,6 +524,7 @@ export default function Home() {
             onConfirm={handleCheckout}
             onTransferPayment={handleTransferPayment}
             onBack={() => navigateToScreen("cart")}
+            canSelectCustomerAccount={canManageSpecialOrders}
           />
         )
       case "transfer-payment":
