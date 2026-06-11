@@ -156,6 +156,7 @@ export type PotentialClient = {
   cuit: string
   email?: string | null
   telefono?: string | null
+  domicilio?: string | null
   createdAt: string
   updatedAt: string
 }
@@ -166,6 +167,7 @@ export type CreatePotentialClientPayload = {
   cuit: string
   email?: string
   telefono?: string
+  domicilio?: string
 }
 
 // Carruseles y Flyers
