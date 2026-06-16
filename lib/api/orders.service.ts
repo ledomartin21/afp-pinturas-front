@@ -1,4 +1,4 @@
-import { apiClient } from "./client"
+import { ApiError, apiClient } from "./client"
 import { API_ENDPOINTS } from "../config/api"
 import type { Order } from "../types"
 import { productsService } from "./products.service"
@@ -196,6 +196,10 @@ export const ordersService = {
 
       return pedidos.map((pedido) => mapPedidoToOrder(pedido, productsById))
     } catch (error) {
+      if (error instanceof ApiError && error.status === 404) {
+        return []
+      }
+
       console.error("[v0] Error obteniendo pedidos:", error)
       throw error
     }

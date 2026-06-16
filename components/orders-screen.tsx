@@ -185,11 +185,12 @@ export function OrdersScreen({ onOrderClick, onOrderPdfClick, onNavigate, onOpen
             )
           })}
           {!isLoading && !errorMessage && orders.length === 0 && (
-            <div className="py-12 text-center">
-              <div className="w-16 h-16 rounded-full bg-primary/15 flex items-center justify-center mx-auto mb-3">
+            <div className="mt-6 rounded-3xl border border-primary/15 bg-card px-6 py-12 text-center shadow-sm">
+              <div className="w-16 h-16 rounded-full bg-primary/15 flex items-center justify-center mx-auto mb-4">
                 <Package className="w-8 h-8 text-primary" />
               </div>
-              <p className="text-sm text-muted-foreground">Todavía no tenés pedidos</p>
+              <p className="text-base font-semibold text-foreground">Aun no hay pedidos realizados</p>
+              <p className="mt-2 text-sm text-muted-foreground">Cuando completes tu primera compra, vas a poder seguirla desde aca.</p>
             </div>
           )}
         </div>
