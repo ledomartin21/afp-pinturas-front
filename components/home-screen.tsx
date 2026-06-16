@@ -213,7 +213,7 @@ export function HomeScreen({ onNavigate, onSearchNavigate, onCatalogPresetNaviga
                     handleSearchSubmit()
                   }
                 }}
-                className="h-11 border-none bg-transparent px-0 text-sm shadow-none focus-visible:ring-0"
+                className="h-11 border-none bg-transparent px-0 text-sm text-foreground shadow-none placeholder:text-muted-foreground focus-visible:ring-0"
               />
               <button
                 type="button"

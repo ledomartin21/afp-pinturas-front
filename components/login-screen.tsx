@@ -20,6 +20,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
   const [cuit, setCuit] = useState("")
   const [email, setEmail] = useState("")
   const [telefono, setTelefono] = useState("")
+  const [domicilio, setDomicilio] = useState("")
   const [contrasena, setContrasena] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errorMessage, setErrorMessage] = useState("")
@@ -36,8 +37,8 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
       if (isRegister) {
         const normalizedCuit = cuit.replace(/\D/g, "")
 
-        if (!nombreUsuario.trim() || !razonSocial.trim() || !normalizedCuit) {
-          setErrorMessage("Por favor completa usuario, razón social/nombre y CUIT")
+        if (!nombreUsuario.trim() || !razonSocial.trim() || !normalizedCuit || !domicilio.trim()) {
+          setErrorMessage("Por favor completa usuario, razón social/nombre, CUIT y domicilio")
           return
         }
 
@@ -57,6 +58,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
           cuit: normalizedCuit,
           email: email.trim() || undefined,
           telefono: telefono.trim() || undefined,
+          domicilio: domicilio.trim(),
         })
 
         setSuccessMessage("Solicitud enviada. El equipo te va a contactar para crear tu usuario.")
@@ -66,6 +68,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
         setCuit("")
         setEmail("")
         setTelefono("")
+        setDomicilio("")
         return
       }
 
@@ -168,6 +171,18 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                     className="h-12"
                   />
                   <p className="text-xs text-muted-foreground">Ingresá el teléfono sin prefijo obligatorio.</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="domicilio">Domicilio</Label>
+                  <Input
+                    id="domicilio"
+                    type="text"
+                    placeholder="Calle, número, localidad"
+                    value={domicilio}
+                    onChange={(e) => setDomicilio(e.target.value)}
+                    className="h-12"
+                    required
+                  />
                 </div>
                 <div className="rounded-xl border border-dashed border-primary/25 bg-primary/5 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
                   Enviá esta solicitud y el admin te dará de alta en la app.
