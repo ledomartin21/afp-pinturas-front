@@ -170,7 +170,7 @@ export function SidebarMenu({ open, onOpenChange, onNavigate, onCategoryNavigate
             </a>
             {/* Instagram */}
             <a
-              href="https://www.instagram.com/afppinturasvm?igsh=MXFydmdqbGQ3enJzNg=="
+              href="https://www.instagram.com/afpinturasvm?igsh=YXl1OHE5YW54bXdm"
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Instagram"
