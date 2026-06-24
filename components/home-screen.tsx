@@ -89,12 +89,12 @@ export function HomeScreen({ onNavigate, onSearchNavigate, onCatalogPresetNaviga
     const loadCarousels = async () => {
       try {
         const allCarousels = await carouselService.getCarousels()
-        const targetCarousel = allCarousels.find((carousel) => carousel.id === 1)
+        const targetCarousel = allCarousels.find((carousel) => carousel.nombre?.trim().toLowerCase() === "general")
 
         const [detailed, downloadsDetailed] = await Promise.all([
           targetCarousel ? carouselService.getCarouselById(targetCarousel.id) : Promise.resolve(null),
           (() => {
-            const explicitDownloads = allCarousels.find((carousel) => carousel.id === 1)
+            const explicitDownloads = allCarousels.find((carousel) => carousel.nombre?.trim().toLowerCase() === "general")
             if (!explicitDownloads) return Promise.resolve(null)
             return carouselService.getCarouselById(explicitDownloads.id)
           })(),
