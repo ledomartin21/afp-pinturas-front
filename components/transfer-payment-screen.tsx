@@ -56,21 +56,21 @@ export function TransferPaymentScreen({ total, onConfirm, onBack }: TransferPaym
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="mx-auto flex max-w-4xl flex-col h-full">
       {/* Header */}
-      <header className="bg-card border-b sticky top-0 z-10">
+      <header className="screen-heading bg-card border-b">
         <div className="h-1 bg-accent" />
         <div className="p-3 flex items-center gap-3">
-          <button onClick={onBack} className="p-2 hover:bg-muted rounded-lg transition-colors">
+          <button onClick={onBack} aria-label="Volver al checkout" className="store-icon-button hover:bg-muted transition-colors">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <h1 className="text-base font-bold">Pago por Transferencia</h1>
         </div>
       </header>
 
-      <div className="flex-1 overflow-auto p-4 space-y-4">
+      <div className="min-w-0 flex-1 p-4 grid items-start gap-4 md:grid-cols-2">
         {/* Monto a pagar */}
-        <Card className="border-2 border-accent bg-accent/10">
+        <Card className="border-2 border-accent bg-accent/10 md:col-span-2">
           <CardContent className="p-5 text-center space-y-1">
             <p className="text-sm text-muted-foreground uppercase tracking-wide">Monto a transferir</p>
             <p className="text-4xl font-bold">${total.toLocaleString("es-AR")}</p>
@@ -78,7 +78,7 @@ export function TransferPaymentScreen({ total, onConfirm, onBack }: TransferPaym
         </Card>
 
         {/* Datos bancarios */}
-        <Card className="border-2">
+        <Card className="min-w-0 border-2 md:row-span-2">
           <CardContent className="p-4 space-y-1">
             <div className="flex items-center gap-2 mb-4">
               <Building2 className="w-5 h-5 text-accent-foreground" />
@@ -169,7 +169,7 @@ export function TransferPaymentScreen({ total, onConfirm, onBack }: TransferPaym
       </div>
 
       {/* Confirmar */}
-      <div className="sticky bottom-0 bg-card border-t p-4">
+      <div className="bg-card border-t p-4 md:mx-4 md:rounded-xl md:border">
         {errorMessage && <p className="mb-2 text-sm text-red-600">{errorMessage}</p>}
         <Button
           className="w-full h-14 text-base font-semibold bg-primary text-primary-foreground hover:bg-primary/90"

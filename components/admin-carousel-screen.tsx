@@ -280,7 +280,7 @@ export function AdminCarouselScreen({ onBack }: AdminCarouselScreenProps) {
               <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
             </div>
           ) : (
-            <div className="p-4 space-y-3">
+            <div className="grid items-start gap-3 p-4 md:grid-cols-2">
               {carousels.length === 0 ? (
                 <div className="text-center py-12">
                   <ImageIcon className="w-12 h-12 mx-auto text-muted-foreground/50 mb-3" />
@@ -337,7 +337,7 @@ export function AdminCarouselScreen({ onBack }: AdminCarouselScreenProps) {
         {renderHeader("Nuevo Carrusel")}
         {renderMessages()}
 
-        <div className="flex-1 overflow-auto p-4 space-y-4">
+        <div className="mx-auto w-full max-w-2xl flex-1 p-4 space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="carousel-name" className="text-xs">Nombre *</Label>
             <Input
@@ -392,7 +392,7 @@ export function AdminCarouselScreen({ onBack }: AdminCarouselScreenProps) {
             <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
           </div>
         ) : selectedCarousel ? (
-          <div className="p-4 space-y-4">
+          <div className="mx-auto max-w-4xl p-4 space-y-4">
             {/* Info del carrusel */}
             <Card className="border overflow-hidden">
               <CardHeader className="bg-blue-50 border-b border-blue-100 py-3 px-4">
@@ -650,7 +650,7 @@ export function AdminCarouselScreen({ onBack }: AdminCarouselScreenProps) {
 
       {/* Delete dialog */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
-        <AlertDialogContent className="max-w-[90vw] rounded-2xl">
+        <AlertDialogContent className="max-w-[90vw] rounded-2xl sm:max-w-lg">
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar eliminacion</AlertDialogTitle>
             <AlertDialogDescription>

@@ -203,10 +203,10 @@ export const productsService = {
     return this.mapProducto(productoApi, catalogs.rubroMap, catalogs.marcaMap)
   },
 
-  async getProductByCode(codigo: string): Promise<Product> {
+  async getProductByCode(codigo: string, fresh = false): Promise<Product> {
     const normalizedCode = codigo.trim()
     const cached = productByCodeCache.get(normalizedCode)
-    if (cached) {
+    if (cached && !fresh) {
       return cached
     }
 

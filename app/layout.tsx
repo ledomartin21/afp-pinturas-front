@@ -1,18 +1,17 @@
 import type React from "react"
+import { Suspense } from "react"
 import type { Metadata } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
-import { PwaRegister } from "@/components/pwa-register"
-import { InstallPrompt } from "@/components/install-prompt"
+import Storefront from "@/components/storefront"
 import "./globals.css"
 
 const _geist = Geist({ subsets: ["latin"] })
 const _geistMono = Geist_Mono({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Ferretería App",
-  description: "Tu ferretería favorita, siempre a mano",
-  generator: "v0.app",
+  title: "AFP Pinturas | Tienda online",
+  description: "Catálogo de pinturas y productos para profesionales. Consultá precios, promociones y realizá tu pedido en AFP Pinturas.",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
@@ -45,10 +44,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es">
-      <body className={`font-sans antialiased`}>
+      <body className={`${_geist.className} antialiased`}>
         {children}
-        <PwaRegister />
-        <InstallPrompt />
+        <Suspense fallback={<div className="store-empty">Cargando tienda…</div>}><Storefront /></Suspense>
         <Analytics />
       </body>
     </html>

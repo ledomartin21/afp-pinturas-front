@@ -178,7 +178,7 @@ export function ProfileScreen({ onLogout, onNavigate, onOpenMenu, cartCount, isA
     return (
       <div className="flex flex-col h-full bg-background">
         <div className="bg-primary px-4 pt-6 pb-8 rounded-b-xl shadow-lg">
-          <div className="flex items-center justify-between mb-5">
+          <div className="hidden">
             <button onClick={onOpenMenu} className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center border border-white/30">
               <Menu className="w-5 h-5 text-white" />
             </button>
@@ -204,8 +204,9 @@ export function ProfileScreen({ onLogout, onNavigate, onOpenMenu, cartCount, isA
   return (
     <div className="flex flex-col h-full bg-background">
       {/* Header dorado */}
-      <div className="bg-primary px-4 pt-6 pb-8 rounded-b-xl shadow-lg">
-        <div className="flex items-center justify-between mb-5">
+      <div className="rounded-b-xl bg-primary px-4 py-6 shadow-sm md:rounded-xl lg:px-8">
+        <h1 className="mb-4 text-xl font-bold text-foreground">Mi perfil</h1>
+        <div className="hidden">
           <button onClick={onOpenMenu} className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center border border-white/30">
             <Menu className="w-5 h-5 text-white" />
           </button>
@@ -221,13 +222,13 @@ export function ProfileScreen({ onLogout, onNavigate, onOpenMenu, cartCount, isA
         </div>
 
         {/* Avatar y nombre en el header */}
-        <div className="flex flex-col items-center gap-2">
+        <div className="flex flex-col items-center gap-2 lg:flex-row lg:gap-4">
           <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center text-2xl font-bold text-white border-2 border-white/40">
             {profile ? getInitials(profile.razonSocial || profile.nombreUsuario) : "?"}
           </div>
-          <div className="text-center">
-            <h2 className="text-lg font-bold text-white">{profile?.razonSocial || profile?.nombreUsuario || "Usuario"}</h2>
-            <p className="text-sm text-white/80">{profile?.mail || ""}</p>
+          <div className="min-w-0 text-center lg:text-left">
+            <h2 className="text-lg font-bold text-foreground">{profile?.razonSocial || profile?.nombreUsuario || "Usuario"}</h2>
+            <p className="break-all text-sm text-foreground">{profile?.mail || ""}</p>
             <div className="flex items-center justify-center gap-1 mt-1">
               <ShieldCheck className="w-3.5 h-3.5 text-white/90" />
               <span className="text-xs text-white/90 font-medium">Cliente verificado</span>
@@ -236,21 +237,21 @@ export function ProfileScreen({ onLogout, onNavigate, onOpenMenu, cartCount, isA
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto px-4 pb-6">
-        <div className="mt-4 space-y-4">
+      <div className="min-w-0 flex-1 px-4 pb-6 lg:px-0">
+        <div className="mt-6 grid items-start gap-4 lg:grid-cols-2">
           {errorMessage && (
-            <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
+            <div role="alert" className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3 lg:col-span-2">
               {errorMessage}
             </div>
           )}
           {successMessage && (
-            <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-lg px-4 py-3">
+            <div role="status" className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-lg px-4 py-3 lg:col-span-2">
               {successMessage}
             </div>
           )}
 
           {/* Datos Personales */}
-          <Card className="border-0 shadow-sm overflow-hidden">
+          <Card className="min-w-0 border-0 shadow-sm overflow-hidden">
             <CardHeader className="bg-primary/10 border-b border-primary/15 py-3 px-4">
               <CardTitle className="flex items-center gap-2 text-sm">
                 <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
@@ -293,7 +294,7 @@ export function ProfileScreen({ onLogout, onNavigate, onOpenMenu, cartCount, isA
             </CardContent>
           </Card>
 
-          <Card className="border-0 shadow-sm overflow-hidden">
+          <Card className="min-w-0 border-0 shadow-sm overflow-hidden">
             <CardHeader className="bg-primary/10 border-b border-primary/15 py-3 px-4">
               <CardTitle className="flex items-center gap-2 text-sm">
                 <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
@@ -346,7 +347,7 @@ export function ProfileScreen({ onLogout, onNavigate, onOpenMenu, cartCount, isA
           </Card>
 
           {/* Direccion */}
-          <Card className="border-0 shadow-sm overflow-hidden">
+          <Card className="min-w-0 border-0 shadow-sm overflow-hidden">
             <CardHeader className="bg-primary/10 border-b border-primary/15 py-3 px-4">
               <CardTitle className="flex items-center gap-2 text-sm">
                 <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">

@@ -33,13 +33,13 @@ export function CartScreen({ items, onUpdateQuantity, onCheckout, onBack, onNavi
 
   return (
     <div className="flex flex-col h-full">
-      <div className="bg-card px-4 py-3 border-b">
+      <div className="screen-heading bg-card px-4 py-3 border-b">
         <div className="h-0.5 bg-accent absolute top-0 left-0 right-0" />
         <div className="flex items-center gap-3">
-          <button onClick={onBack} className="p-2 hover:bg-muted rounded-lg transition-colors">
+          <button onClick={onBack} aria-label="Volver al catálogo" className="store-icon-button hover:bg-muted transition-colors">
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <h1 className="text-lg font-bold">Mi Carrito</h1>
+          <div><h1 className="text-lg font-black tracking-tight">Tu pedido</h1><p className="text-xs text-muted-foreground">Revisá cantidades antes de continuar.</p></div>
           <span className="ml-auto text-sm font-medium text-muted-foreground">
             {items.length} {items.length === 1 ? "producto" : "productos"}
           </span>
@@ -58,8 +58,8 @@ export function CartScreen({ items, onUpdateQuantity, onCheckout, onBack, onNavi
           </Button>
         </div>
       ) : (
-        <>
-          <div className="flex-1 overflow-auto p-4 space-y-3">
+        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-6 lg:pt-6">
+          <div className="min-w-0 flex-1 p-4 space-y-3 lg:p-0">
             {items.map((item) => {
               const line = calculateLinePricing(item)
               const itemPrice = line.unitPrice
@@ -67,7 +67,7 @@ export function CartScreen({ items, onUpdateQuantity, onCheckout, onBack, onNavi
               const isPromotion = item.type === "promotion"
 
               return (
-                <Card key={item.cartKey} className="border-2">
+                <Card key={item.cartKey} className="border shadow-none">
                   <CardContent className="p-4">
                     <div className="flex gap-4">
                       <img
@@ -75,7 +75,7 @@ export function CartScreen({ items, onUpdateQuantity, onCheckout, onBack, onNavi
                         alt={item.name}
                         className="w-20 h-20 rounded-lg object-cover bg-muted"
                       />
-                      <div className="flex-1 flex flex-col gap-2">
+                      <div className="min-w-0 flex-1 flex flex-col gap-2">
                         <div>
                           <h3 className="font-semibold text-balance leading-tight">{item.name}</h3>
                           <p className="text-sm text-muted-foreground">{item.category}</p>
@@ -120,12 +120,13 @@ export function CartScreen({ items, onUpdateQuantity, onCheckout, onBack, onNavi
                         ))}
                       </div>
                     )}
-                    <div className="mt-3 flex items-center justify-between">
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
                       <div className="flex items-center gap-2">
                         <Button
                           variant="outline"
                           size="icon"
-                          className="h-8 w-8 bg-transparent border-2"
+                          aria-label={`Quitar una unidad de ${item.name}`}
+                          className="h-11 w-11 bg-transparent border-2"
                           onClick={() => onUpdateQuantity(item.cartKey, item.quantity - 1)}
                         >
                           <Minus className="w-4 h-4" />
@@ -134,7 +135,8 @@ export function CartScreen({ items, onUpdateQuantity, onCheckout, onBack, onNavi
                         <Button
                           variant="outline"
                           size="icon"
-                          className="h-8 w-8 bg-transparent border-2"
+                          aria-label={`Agregar una unidad de ${item.name}`}
+                          className="h-11 w-11 bg-transparent border-2"
                           onClick={() => onUpdateQuantity(item.cartKey, item.quantity + 1)}
                           disabled={item.quantity >= item.stock}
                         >
@@ -146,7 +148,8 @@ export function CartScreen({ items, onUpdateQuantity, onCheckout, onBack, onNavi
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          aria-label={`Eliminar ${item.name} del carrito`}
+                          className="h-11 w-11 text-destructive hover:text-destructive hover:bg-destructive/10"
                           onClick={() => onUpdateQuantity(item.cartKey, 0)}
                         >
                           <Trash2 className="w-4 h-4" />
@@ -159,7 +162,8 @@ export function CartScreen({ items, onUpdateQuantity, onCheckout, onBack, onNavi
             })}
           </div>
 
-          <div className="sticky bottom-0 bg-card border-t p-4 space-y-3">
+          <aside aria-label="Resumen de compra" className="bg-card border-t p-4 space-y-3 lg:sticky lg:top-6 lg:rounded-xl lg:border lg:p-6">
+            <h2 className="text-lg font-bold">Resumen de compra</h2>
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Subtotal</span>
@@ -184,13 +188,13 @@ export function CartScreen({ items, onUpdateQuantity, onCheckout, onBack, onNavi
               </div>
             </div>
             <Button
-              className="w-full h-14 text-base font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
+              className="w-full h-14 text-base font-black bg-primary text-primary-foreground hover:bg-primary/90"
               onClick={onCheckout}
             >
-              Continuar con la Compra
+              Elegir entrega y pago
             </Button>
-          </div>
-        </>
+          </aside>
+        </div>
       )}
     </div>
   )

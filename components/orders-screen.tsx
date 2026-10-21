@@ -46,8 +46,8 @@ export function OrdersScreen({ onOrderClick, onOrderPdfClick, onNavigate, onOpen
   }, [])
 
   const header = (
-    <div className="bg-primary px-4 pt-6 pb-8 rounded-b-xl shadow-lg">
-      <div className="flex items-center justify-between mb-5">
+    <div className="screen-heading px-4 py-6">
+      <div className="hidden">
         <button onClick={onOpenMenu} className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center border border-white/30">
           <Menu className="w-5 h-5 text-white" />
         </button>
@@ -61,8 +61,8 @@ export function OrdersScreen({ onOrderClick, onOrderPdfClick, onNavigate, onOpen
           )}
         </button>
       </div>
-      <h1 className="text-xl font-bold text-white text-center">Mis Pedidos</h1>
-      <p className="text-sm text-white/80 text-center">Seguí el estado de tus compras</p>
+      <h1 className="text-2xl font-bold">Mis pedidos</h1>
+      <p className="mt-2 text-sm text-muted-foreground">Seguí el estado de tus compras</p>
     </div>
   )
 
@@ -84,10 +84,10 @@ export function OrdersScreen({ onOrderClick, onOrderPdfClick, onNavigate, onOpen
     <div className="flex flex-col h-full bg-background">
       {header}
 
-      <div className="flex-1 overflow-auto px-4 pb-6">
+      <div className="min-w-0 flex-1 px-4 pb-6 lg:px-0">
         {/* Orders */}
-        <div className="mt-4 space-y-3">
-          {errorMessage && <p className="text-sm text-red-600">{errorMessage}</p>}
+        <div className="mt-4 grid items-start gap-4 lg:grid-cols-2">
+          {errorMessage && <p role="alert" className="text-sm text-red-600 lg:col-span-2">{errorMessage}</p>}
           {orders.map((order) => {
             const status = STATUS_CONFIG[order.status]
             const StatusIcon = status.icon
@@ -107,12 +107,12 @@ export function OrdersScreen({ onOrderClick, onOrderPdfClick, onNavigate, onOpen
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
-                        <p className="font-bold text-sm truncate">Pedido #{order.id}</p>
+                        <button aria-expanded={isExpanded} onClick={(event) => { event.stopPropagation(); setExpanded(isExpanded ? null : order.id) }} className="min-h-11 text-left font-bold text-sm break-all">Pedido #{order.id}</button>
                         <Badge className={`${status.bg} ${status.text} border ${status.border} text-[10px] px-1.5 py-0 shrink-0`}>
                           {status.label}
                         </Badge>
                       </div>
-                      <div className="flex items-center justify-between mt-1">
+                      <div className="flex flex-wrap items-center justify-between gap-2 mt-1">
                         <p className="text-xs text-muted-foreground">
                           {new Date(order.date).toLocaleDateString("es-AR", { day: "numeric", month: "short", year: "numeric" })}
                           {" · "}{order.items.length} {order.items.length === 1 ? "producto" : "productos"}
@@ -123,7 +123,7 @@ export function OrdersScreen({ onOrderClick, onOrderPdfClick, onNavigate, onOpen
                     <button
                       type="button"
                       aria-label={`Ver nota de pedido ${order.id}`}
-                      className="flex h-8 w-8 items-center justify-center rounded-full border border-border/70 bg-card text-muted-foreground transition-colors hover:text-primary"
+                      className="store-icon-button shrink-0 border border-border/70 bg-card text-muted-foreground transition-colors hover:text-foreground"
                       onClick={(e) => {
                         e.stopPropagation()
                         onOrderPdfClick(order)
@@ -185,7 +185,7 @@ export function OrdersScreen({ onOrderClick, onOrderPdfClick, onNavigate, onOpen
             )
           })}
           {!isLoading && !errorMessage && orders.length === 0 && (
-            <div className="mt-6 rounded-3xl border border-primary/15 bg-card px-6 py-12 text-center shadow-sm">
+            <div className="mt-6 rounded-3xl border border-primary/15 bg-card px-6 py-12 text-center shadow-sm lg:col-span-2">
               <div className="w-16 h-16 rounded-full bg-primary/15 flex items-center justify-center mx-auto mb-4">
                 <Package className="w-8 h-8 text-primary" />
               </div>

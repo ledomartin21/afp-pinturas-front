@@ -5,7 +5,7 @@
 <h1 align="center">AFP Pinturas</h1>
 
 <p align="center">
-  E-commerce movil B2B para AFP Pinturas — corralon de pinturas y materiales.
+  E-commerce responsive B2B para AFP Pinturas — celular, tablet y PC.
 </p>
 
 ---
@@ -13,6 +13,8 @@
 ## Sobre el proyecto
 
 Aplicacion web mobile-first orientada a clientes mayoristas de AFP Pinturas. Permite explorar el catalogo de productos, gestionar pedidos, realizar reservas de productos sin stock y administrar carruseles promocionales.
+
+La tienda comparte navegación, sesión y carrito entre sus distribuciones móvil y escritorio. Ver [implementación responsive y verificaciones](docs/responsive-storefront.md).
 
 ### Funcionalidades principales
 
@@ -42,7 +44,7 @@ Aplicacion web mobile-first orientada a clientes mayoristas de AFP Pinturas. Per
 
 - **Node.js** >= 18
 - **npm** >= 9
-- Backend corriendo en `http://localhost:3000` (el frontend hace proxy via `/api/*`)
+- Backend corriendo en `http://localhost:3002` por defecto (el frontend hace proxy via `/api/*`; configurable con `NEXT_PUBLIC_API_URL`)
 
 ## Instalacion
 
@@ -75,15 +77,18 @@ La aplicacion estara disponible en [http://localhost:3000](http://localhost:3000
 
 ## Arquitectura
 
-La aplicacion es una **SPA** (Single Page Application) que maneja toda la navegacion client-side dentro de `app/page.tsx` usando `window.history.pushState`. No utiliza el routing de Next.js.
+La aplicación utiliza rutas de Next.js con una tienda persistente en `components/storefront.tsx`, montada desde el layout compartido. `lib/navigation.ts` traduce las URLs a pantallas; el catálogo conserva búsqueda, filtros y página en parámetros de URL. `lib/cart-storage.ts` persiste el carrito por usuario y permite recuperar el carrito invitado al iniciar sesión.
 
 ```
 app/
-  page.tsx              # Router principal SPA y estado global
-  layout.tsx            # Root layout
+  page.tsx              # Entrada a inicio; la tienda se monta desde el layout
+  [...path]/page.tsx    # Rutas de la tienda
+  layout.tsx            # Root layout y Storefront persistente
   globals.css           # Tema de colores y Tailwind
 
 components/
+  storefront.tsx       # Estado compartido, sesión, carrito y render de pantallas
+  layout/store-layout.tsx # Header responsive, menú móvil y footer
   login-screen.tsx      # Autenticacion
   home-screen.tsx       # Pantalla de inicio
   catalog-screen.tsx    # Catalogo de productos
@@ -96,6 +101,8 @@ components/
   ui/                   # Componentes shadcn/ui
 
 lib/
+  navigation.ts         # Mapeo entre rutas y pantallas
+  cart-storage.ts       # Persistencia del carrito por usuario
   api/                  # Servicios HTTP (auth, productos, pedidos, etc.)
   config/               # Configuracion de API y constantes
   types/                # Tipos TypeScript

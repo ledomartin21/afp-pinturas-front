@@ -1,6 +1,6 @@
 export type Screen =
   | "login"
-  | "dashboard"
+  | "home"
   | "catalog"
   | "product-detail"
   | "cart"
@@ -8,7 +8,11 @@ export type Screen =
   | "orders"
   | "account"
   | "profile"
-  | "invoices"
+  | "order-detail"
+  | "order-pdf"
+  | "promotion-detail"
+  | "transfer-payment"
+  | "admin-carousel"
 
 export type Product = {
   id: string
@@ -66,6 +70,9 @@ export type PromotionCartItem = {
   id: string
   promotionId: number
   promotionName: string
+  promotionDescription?: string | null
+  promotionType?: "porcentaje" | "nxm" | "combo_fijo"
+  promotionScope?: "producto" | "rubro" | "marca" | "combo"
   name: string
   price: number
   stock: number

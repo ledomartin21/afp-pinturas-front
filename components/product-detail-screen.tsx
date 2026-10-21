@@ -243,7 +243,7 @@ export function ProductDetailScreen({ product, onAddToCart, onViewPromotion, onB
   return (
     <div className="flex flex-col h-full">
       {/* Header dorado consistente con el resto de la app */}
-      <header className="bg-primary px-4 pt-6 pb-4 rounded-b-xl shadow-lg relative z-10">
+      <header className="legacy-store-header">
         <div className="flex items-center justify-between">
           <button
             onClick={onBack}
@@ -274,13 +274,16 @@ export function ProductDetailScreen({ product, onAddToCart, onViewPromotion, onB
         </div>
       </header>
 
-      <div ref={scrollRef} className="flex-1 overflow-auto">
+      <div className="px-4 py-3 lg:px-0"><Button variant="ghost" onClick={onBack}><ArrowLeft className="mr-2 size-4" />Volver al catálogo</Button></div>
+      <div ref={scrollRef} className="min-w-0 flex-1">
+        <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-8">
+        <div className="min-w-0 overflow-hidden lg:rounded-xl lg:border">
         {/* Imagen */}
         <div className="relative bg-card">
           <img
             src={currentImage}
             alt={product.name}
-            className={`w-full aspect-square object-cover ${isOutOfStock ? "opacity-50" : ""}`}
+            className={`w-full aspect-square max-h-[560px] object-contain ${isOutOfStock ? "opacity-50" : ""}`}
           />
           {galleryLoading && (
             <div className="absolute inset-0 flex items-center justify-center bg-background/50">
@@ -340,8 +343,9 @@ export function ProductDetailScreen({ product, onAddToCart, onViewPromotion, onB
             </div>
           </div>
         )}
+        </div>
 
-        <div className="px-4 pb-4 pt-4 space-y-4">
+        <div className="min-w-0 px-4 pb-4 pt-4 space-y-4 lg:p-0">
           {/* SKU + Info */}
           <div className="space-y-1">
             <p className="text-[10px] font-bold uppercase tracking-wider text-destructive">{product.id}</p>
@@ -501,6 +505,7 @@ export function ProductDetailScreen({ product, onAddToCart, onViewPromotion, onB
                 size="icon"
                 className="h-11 w-11 bg-transparent border-2"
                 onClick={decrementQuantity}
+                aria-label="Disminuir cantidad"
                 disabled={quantity <= 1}
               >
                 <Minus className="w-5 h-5" />
@@ -516,12 +521,27 @@ export function ProductDetailScreen({ product, onAddToCart, onViewPromotion, onB
                 size="icon"
                 className="h-11 w-11 bg-transparent border-2"
                 onClick={incrementQuantity}
+                aria-label="Aumentar cantidad"
               >
                 <Plus className="w-5 h-5" />
               </Button>
             </div>
           </div>
 
+          <div className="rounded-xl border bg-card p-4 space-y-3">
+            <div className="flex items-center justify-between gap-3 text-sm"><span className="text-muted-foreground">Subtotal ({quantity} {quantity === 1 ? "unidad" : "unidades"})</span><span className="text-xl font-bold">${subtotal.toLocaleString("es-AR")}</span></div>
+            <Button className="h-13 w-full text-base font-semibold" onClick={handleAddToCart}>
+              {isOutOfStock ? <CalendarClock className="mr-2 size-5" /> : <ShoppingCart className="mr-2 size-5" />}
+              {isOutOfStock ? "Reservar producto" : "Agregar al carrito"}
+            </Button>
+            <div role="status" aria-live="polite" className="text-center text-sm font-medium">
+              {showFeedback && <p>{feedbackMessage}</p>}
+              {showReserveConfirm && <p>Reserva registrada. Te notificaremos cuando haya stock.</p>}
+            </div>
+          </div>
+        </div>
+        </div>
+        <div className="p-4 lg:px-0 lg:pt-10">
           {/* Sugerencias - Grid como en catalogo */}
           {suggestedLoading ? (
             <div className="space-y-3 pt-1">
@@ -533,11 +553,14 @@ export function ProductDetailScreen({ product, onAddToCart, onViewPromotion, onB
           ) : suggestedProducts.length > 0 ? (
             <div className="space-y-3 pt-1">
               <h3 className="text-sm font-bold">Productos Relacionados</h3>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
                 {suggestedProducts.map((sp) => (
                   <Card
                     key={sp.id}
                     className="cursor-pointer hover:shadow-md transition-all border-0 shadow-sm overflow-hidden active:scale-[0.97]"
+                    role="link"
+                    tabIndex={0}
+                    onKeyDown={(event) => { if (event.key === "Enter") onProductClick(sp) }}
                     onClick={() => onProductClick(sp)}
                   >
                     <div className="relative">
@@ -571,49 +594,9 @@ export function ProductDetailScreen({ product, onAddToCart, onViewPromotion, onB
         </div>
       </div>
 
-      {/* Bottom bar */}
-      <div className="sticky bottom-0 bg-card border-t p-4 space-y-2">
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">
-            Subtotal ({quantity} {quantity === 1 ? "unidad" : "unidades"})
-          </span>
-          <span className="text-xl font-bold">${subtotal.toLocaleString("es-AR")}</span>
-        </div>
-        <Button
-          className={`w-full h-13 text-base font-semibold ${
-            isOutOfStock
-              ? "bg-amber-500 text-white hover:bg-amber-600"
-              : "bg-primary text-primary-foreground hover:bg-primary/90"
-          }`}
-          onClick={handleAddToCart}
-        >
-          {isOutOfStock ? (
-            <>
-              <CalendarClock className="w-5 h-5 mr-2" />
-              Reservar Producto
-            </>
-          ) : (
-            <>
-              <ShoppingCart className="w-5 h-5 mr-2" />
-              Agregar al Carrito
-            </>
-          )}
-        </Button>
-        {showFeedback && (
-          <div className="text-center text-sm font-medium text-primary animate-in fade-in slide-in-from-bottom-2">
-            {feedbackMessage}
-          </div>
-        )}
-        {showReserveConfirm && (
-          <div className="text-center text-sm font-medium text-amber-600 animate-in fade-in slide-in-from-bottom-2">
-            Reserva registrada. Te notificaremos cuando haya stock.
-          </div>
-        )}
-      </div>
-
       {/* Dialog de reserva */}
       <AlertDialog open={showReserveDialog} onOpenChange={setShowReserveDialog}>
-        <AlertDialogContent className="max-w-[90vw] rounded-2xl">
+        <AlertDialogContent className="max-w-[90vw] rounded-2xl sm:max-w-lg">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-lg">
               <AlertTriangle className="w-5 h-5 text-amber-500" />

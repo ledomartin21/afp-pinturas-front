@@ -295,17 +295,18 @@ export function CheckoutScreen({ items, onConfirm, onTransferPayment, onBack, ca
 
   return (
     <div className="flex flex-col h-full">
-      <header className="bg-card border-b sticky top-0 z-10">
+      <header className="screen-heading bg-card border-b">
         <div className="h-1 bg-accent" />
         <div className="p-3 flex items-center gap-3">
-          <button onClick={onBack} className="p-2 hover:bg-muted rounded-lg transition-colors">
+          <button onClick={onBack} aria-label="Volver al carrito" className="store-icon-button hover:bg-muted transition-colors">
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <h1 className="text-lg font-bold">Checkout</h1>
+          <div><h1 className="text-lg font-black tracking-tight">Confirmar pedido</h1><p className="text-xs text-muted-foreground">Entrega, pago y detalle final.</p></div>
         </div>
       </header>
 
-      <div className="flex-1 overflow-auto p-4 space-y-4">
+      <div className="p-4 lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-6 lg:px-0 lg:pt-6">
+      <div className="min-w-0 space-y-4">
         <Card className="border-2">
           <CardContent className="p-4 space-y-4">
             <h2 className="font-semibold text-lg">Metodo de Entrega</h2>
@@ -505,6 +506,8 @@ export function CheckoutScreen({ items, onConfirm, onTransferPayment, onBack, ca
           </CardContent>
         </Card>
 
+      </div>
+      <aside aria-label="Resumen y confirmación del pedido" className="mt-4 min-w-0 space-y-4 lg:sticky lg:top-6 lg:mt-0">
         <Card className="border-2">
           <CardContent className="p-4 space-y-3">
             <h2 className="font-semibold text-lg">Resumen del Pedido</h2>
@@ -513,11 +516,11 @@ export function CheckoutScreen({ items, onConfirm, onTransferPayment, onBack, ca
                 const pricing = calculateLinePricing(item)
                 const itemPrice = pricing.unitPrice
                 return (
-                  <div key={item.cartKey} className="flex justify-between text-sm">
+                  <div key={item.cartKey} className="flex justify-between gap-3 text-sm">
                     <span className="text-muted-foreground">
                       {item.name} x{item.quantity}
                     </span>
-                    <span className="font-medium">${(itemPrice * item.quantity).toLocaleString("es-AR")}</span>
+                    <span className="shrink-0 font-medium">${(itemPrice * item.quantity).toLocaleString("es-AR")}</span>
                   </div>
                 )
               })}
@@ -529,7 +532,7 @@ export function CheckoutScreen({ items, onConfirm, onTransferPayment, onBack, ca
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Envio</span>
-                <span className="font-semibold">{deliveryFee === 0 ? "Gratis" : `$${deliveryFee.toLocaleString("es-AR")}`}</span>
+                <span className="font-semibold">Gratis</span>
               </div>
               <div className="flex justify-between pt-2 border-t">
                 <span className="font-bold">Total</span>
@@ -538,17 +541,17 @@ export function CheckoutScreen({ items, onConfirm, onTransferPayment, onBack, ca
             </div>
           </CardContent>
         </Card>
-      </div>
-
-      <div className="sticky bottom-0 bg-card border-t p-4">
-        {errorMessage && <p className="mb-2 text-sm text-red-600">{errorMessage}</p>}
+      <div className="rounded-xl bg-card border p-4">
+        {errorMessage && <p role="alert" className="mb-2 text-sm text-red-600">{errorMessage}</p>}
         <Button className="w-full h-14 text-base font-semibold bg-primary text-primary-foreground hover:bg-primary/90" onClick={handleConfirm} disabled={isSubmitting}>
           {isSubmitting ? "Procesando..." : paymentMethod === "transfer" ? "Continuar con Transferencia" : "Confirmar Pedido"}
         </Button>
       </div>
+      </aside>
+      </div>
 
       <AlertDialog open={showAddressDecision} onOpenChange={setShowAddressDecision}>
-        <AlertDialogContent className="max-w-[90vw] rounded-2xl">
+        <AlertDialogContent className="max-w-[90vw] rounded-2xl sm:max-w-lg">
           <AlertDialogHeader>
             <AlertDialogTitle>Dirección modificada</AlertDialogTitle>
             <AlertDialogDescription>

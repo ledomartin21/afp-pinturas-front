@@ -44,8 +44,8 @@ export function AccountScreen({ onNavigate, onOpenMenu, cartCount }: AccountScre
   }, [])
 
   const header = (
-    <div className="rounded-b-xl bg-primary px-4 pb-8 pt-6 shadow-lg">
-      <div className="mb-5 flex items-center justify-between">
+    <div className="screen-heading px-4 py-6">
+      <div className="hidden">
         <button onClick={onOpenMenu} className="flex h-10 w-10 items-center justify-center rounded-full border border-white/30 bg-white/20">
           <Menu className="h-5 w-5 text-white" />
         </button>
@@ -59,8 +59,8 @@ export function AccountScreen({ onNavigate, onOpenMenu, cartCount }: AccountScre
           )}
         </button>
       </div>
-      <h1 className="text-center text-xl font-bold text-white">Mi Cuenta</h1>
-      <p className="text-center text-sm text-white/80">Comprobantes con saldo abierto</p>
+      <h1 className="text-2xl font-bold">Cuenta corriente</h1>
+      <p className="mt-2 text-sm text-muted-foreground">Comprobantes con saldo abierto</p>
     </div>
   )
 
@@ -88,8 +88,8 @@ export function AccountScreen({ onNavigate, onOpenMenu, cartCount }: AccountScre
     <div className="flex h-full flex-col bg-background">
       {header}
 
-      <div className="flex-1 overflow-auto px-4 pb-6">
-        <Card className="mt-4 rounded-2xl border-none shadow-sm">
+      <div className="min-w-0 flex-1 px-4 pb-6 lg:grid lg:grid-cols-[300px_minmax(0,1fr)] lg:items-start lg:gap-6 lg:px-0">
+        <Card className="mt-4 rounded-2xl border-none shadow-sm lg:sticky lg:top-6">
           <CardContent className="p-4">
             <div className="flex items-center justify-between gap-3">
               <div>
@@ -106,7 +106,7 @@ export function AccountScreen({ onNavigate, onOpenMenu, cartCount }: AccountScre
           </CardContent>
         </Card>
 
-        <div className="mt-4 space-y-3">
+        <div className="mt-4 grid min-w-0 gap-3 xl:grid-cols-2">
           {errorMessage && (
             <Card className="rounded-2xl border border-red-200 bg-red-50 shadow-none">
               <CardContent className="p-3">

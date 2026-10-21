@@ -74,7 +74,7 @@ export function OrderDetailScreen({ order, onBack }: OrderDetailScreenProps) {
         </div>
       </header>
 
-      <div className="flex-1 overflow-auto space-y-4 p-4">
+      <div className="min-w-0 flex-1 grid items-start gap-4 p-4 lg:grid-cols-2 lg:px-0">
         <Card className="border-2">
           <CardContent className="p-4 space-y-3">
             <div className="flex items-start justify-between gap-3">
@@ -146,7 +146,7 @@ export function OrderDetailScreen({ order, onBack }: OrderDetailScreenProps) {
           </CardContent>
         </Card>
 
-        <Card className="border-2">
+        <Card className="min-w-0 border-2 lg:col-span-2">
           <CardContent className="p-4 space-y-3">
             <h2 className="font-semibold text-base">Productos</h2>
             <div className="space-y-2">

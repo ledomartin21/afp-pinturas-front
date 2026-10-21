@@ -3,39 +3,23 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* ============================================
-   COLOR SYSTEM - AFP PINTURAS (Paleta Stitch)
-   ============================================
-
-   COLORES PRINCIPALES DE LA APP:
-   - primary: Dorado/Ámbar oklch(0.75 0.15 85) - Header, nav, botones, iconos
-   - secondary: Dorado oscuro oklch(0.65 0.12 85) - Variante secundaria
-   - accent: Dorado claro oklch(0.85 0.12 85) - Highlights, badges
-   - background: Crema cálido oklch(0.98 0.005 90)
-   - foreground: Oscuro cálido oklch(0.2 0.02 90)
-   - destructive: Rojo oklch(0.45 0.15 25) ~#ae3b36
-   - card/sidebar: Blanco puro
-   - border-radius: 10px (0.625rem)
-
-   Para cambiar los colores de la app, modifica estos valores:
-   ============================================ */
+/* AFP Pinturas — mesa de muestras: ocre de marca, azul de taller y fondo mineral. */
 
 :root {
-  /* === COLORES PRINCIPALES (Paleta Stitch) === */
-  --primary: oklch(0.75 0.15 85); /* Dorado/Ámbar - Header, nav, botones, iconos activos */
-  --primary-foreground: oklch(0.99 0 0); /* Texto sobre primary (blanco) */
+  --primary: oklch(0.84 0.16 86); /* Ocre AFP #f6c642 */
+  --primary-foreground: oklch(0.24 0.035 240);
 
-  --secondary: oklch(0.65 0.12 85); /* Dorado más oscuro - Variante secundaria */
-  --secondary-foreground: oklch(0.99 0 0); /* Texto sobre secondary (blanco) */
+  --secondary: oklch(0.31 0.055 239); /* Azul taller #18384a */
+  --secondary-foreground: oklch(0.98 0.006 100);
 
-  --accent: oklch(0.85 0.12 85); /* Dorado claro - Highlights, badges, hover */
-  --accent-foreground: oklch(0.2 0.02 90); /* Texto sobre accent (oscuro) */
+  --accent: oklch(0.92 0.055 94); /* Amarillo de muestra */
+  --accent-foreground: oklch(0.24 0.035 240);
 
-  --top-bar: oklch(0.75 0.15 85); /* Barra superior = primary */
+  --top-bar: oklch(0.31 0.055 239);
 
   /* === COLORES DE FONDO === */
-  --background: oklch(0.98 0.005 90); /* Crema cálido (fondo general) */
-  --foreground: oklch(0.2 0.02 90); /* Texto principal (oscuro cálido) */
+  --background: oklch(0.965 0.012 155); /* Mineral muy pálido */
+  --foreground: oklch(0.24 0.035 240); /* Tinta azul */
 
   /* === CARDS Y ELEMENTOS === */
   --card: oklch(1 0 0); /* Fondo de tarjetas (blanco puro) */
@@ -45,16 +29,16 @@
   --popover-foreground: oklch(0.2 0.02 90); /* Texto en popovers */
 
   /* === ELEMENTOS NEUTRALES === */
-  --muted: oklch(0.96 0.005 90); /* Fondo suave cálido */
-  --muted-foreground: oklch(0.5 0.01 90); /* Texto deshabilitado */
+  --muted: oklch(0.93 0.014 170);
+  --muted-foreground: oklch(0.48 0.028 230);
 
   /* === BORDES Y INPUTS === */
-  --border: oklch(0.9 0.005 90); /* Bordes cálidos */
-  --input: oklch(0.9 0.005 90); /* Bordes de inputs */
-  --ring: oklch(0.75 0.15 85); /* Color de foco = primary */
+  --border: oklch(0.84 0.018 190);
+  --input: oklch(0.84 0.018 190);
+  --ring: oklch(0.55 0.1 230);
 
   /* === ELEMENTOS DESTRUCTIVOS === */
-  --destructive: oklch(0.45 0.15 25); /* Rojo (#ae3b36) para SKUs y acciones destructivas */
+  --destructive: oklch(0.52 0.16 30); /* Rojo óxido para quiebres de stock */
   --destructive-foreground: oklch(0.99 0 0); /* Texto en botones destructivos */
 
   /* === SIDEBAR === */
@@ -75,7 +59,7 @@
   --chart-5: oklch(0.45 0.15 25);
 
   /* === BORDER RADIUS === */
-  --radius: 0.625rem; /* 10px como define Stitch */
+  --radius: 0.75rem;
 }
 
 /* ============================================
@@ -169,5 +153,73 @@
   }
   body {
     @apply bg-background text-foreground;
+    background: var(--background);
   }
+}
+
+/* Shared storefront: mobile-first, with one page scroll and bounded desktop width. */
+.store-container,
+.store-content {
+  width: 100%;
+  max-width: 1280px;
+  margin-inline: auto;
+  min-width: 0;
+}
+.store-container { padding-inline: 1rem; }
+.store-content { min-height: 55vh; padding-bottom: 5rem; }
+.store-empty { padding: 4rem 1.5rem; text-align: center; }
+.store-empty h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 1rem; }
+.store-empty a { display: inline-block; padding: 1rem; text-decoration: underline; }
+@layer components {
+  .store-icon-button { display: inline-flex; min-width: 44px; min-height: 44px; align-items: center; justify-content: center; border-radius: var(--radius); }
+  .store-icon-button:hover { background-color: var(--muted); }
+  .commerce-card { border: 1px solid var(--border); background: var(--card); box-shadow: 0 8px 20px color-mix(in oklch, var(--secondary) 6%, transparent); }
+  .commerce-chip { display: inline-flex; min-height: 2rem; align-items: center; gap: 0.4rem; border-radius: 999px; border: 1px solid color-mix(in oklch, var(--secondary) 24%, transparent); background: var(--accent); padding-inline: 0.75rem; font-size: 0.75rem; font-weight: 700; color: var(--foreground); }
+}
+.store-skip-link { position: fixed; top: 0.5rem; left: 1rem; z-index: 100; padding: 0.75rem 1rem; background: var(--card); transform: translateY(-200%); }
+.store-skip-link:focus { transform: translateY(0); }
+.storefront :where(button, a, input, select, [role="checkbox"], [tabindex]):focus-visible { outline: 2px solid var(--foreground); outline-offset: 3px; }
+/* The main region receives programmatic route focus, not an interactive focus ring. */
+.storefront .store-content:focus { outline: none; }
+.storefront button:not(:disabled), .storefront a { cursor: pointer; }
+.storefront :where(input, select) { min-height: 44px; }
+.storefront [data-slot="badge"] { overflow-wrap: anywhere; }
+.store-content > div { min-width: 0; }
+.store-content .screen-heading { position: relative; background: transparent; box-shadow: none; border-radius: 0; }
+.legacy-store-header { display: none; }
+.store-whatsapp { bottom: 1rem; right: 1rem; }
+
+/* The order desk is deliberately calm; the paint swatch is the only large color field. */
+.store-header { box-shadow: 0 4px 18px color-mix(in oklch, var(--secondary) 10%, transparent); }
+.store-header > div:first-of-type { background: var(--secondary); }
+.store-header nav a[aria-current="page"] { box-shadow: inset 0 -3px 0 var(--foreground); }
+.store-header form { border-radius: 0.875rem; }
+.store-header form button { border-radius: 0.625rem; }
+.screen-home .home-layout { gap: 1.25rem; }
+/* The home begins with the campaign itself, not a text-heavy introduction. */
+.home-carousel-bleed { width: 100vw; margin-left: calc(50% - 50vw); }
+.home-carousel { height: clamp(17rem, 39vw, 35rem); }
+.home-carousel img { object-position: center; }
+.home-entry-points { border: 1px solid var(--border); background: color-mix(in oklch, var(--card) 92%, var(--primary)); box-shadow: 0 12px 28px color-mix(in oklch, var(--secondary) 8%, transparent); }
+.home-entry-points > button + button { border-top: 1px solid var(--border); }
+.home-line-card img { transition: transform .5s cubic-bezier(.22,1,.36,1); }
+.home-line-card:hover img { transform: scale(1.045); }
+@media (min-width: 768px) {
+  .home-entry-points > button + button { border-top: 0; border-left: 1px solid var(--border); }
+}
+.screen-catalog .commerce-card > article, .screen-catalog article.commerce-card { box-shadow: none; }
+.screen-catalog article.commerce-card { border-radius: 0.875rem; }
+.screen-catalog article.commerce-card:hover { border-color: color-mix(in oklch, var(--secondary) 46%, var(--border)); }
+.screen-cart aside { border-top: 4px solid var(--primary); box-shadow: 0 12px 26px color-mix(in oklch, var(--secondary) 9%, transparent); }
+.screen-checkout .screen-heading, .screen-cart .screen-heading { border-bottom: 1px solid var(--border); }
+@media (min-width: 768px) {
+  .store-container { padding-inline: 1.5rem; }
+  .store-content { padding: 1.5rem 1.5rem 3rem; }
+}
+@media (min-width: 1024px) {
+  .store-container, .store-content { padding-inline: 2rem; }
+  .store-content .screen-heading { padding-inline: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .storefront *, [data-slot="dialog-content"], [data-slot="sheet-content"] { scroll-behavior: auto !important; animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }

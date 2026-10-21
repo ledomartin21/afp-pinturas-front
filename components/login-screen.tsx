@@ -11,10 +11,11 @@ import { ApiError, authService, potentialClientsService } from "@/lib/api"
 
 interface LoginScreenProps {
   onLogin: (rolId: number, usuarioId: string | number, rolNombre?: string) => void
+  initialRegister?: boolean
 }
 
-export function LoginScreen({ onLogin }: LoginScreenProps) {
-  const [isRegister, setIsRegister] = useState(false)
+export function LoginScreen({ onLogin, initialRegister = false }: LoginScreenProps) {
+  const [isRegister, setIsRegister] = useState(initialRegister)
   const [nombreUsuario, setNombreUsuario] = useState("")
   const [razonSocial, setRazonSocial] = useState("")
   const [cuit, setCuit] = useState("")
@@ -87,7 +88,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen p-4 bg-gradient-to-b from-muted to-background">
+    <div className="flex items-center justify-center min-h-[60vh] p-4 py-8 bg-gradient-to-b from-muted to-background">
       <Card className="w-full max-w-md shadow-xl border-t-4 border-t-accent">
         <CardHeader className="text-center space-y-4">
           <div className="mx-auto">

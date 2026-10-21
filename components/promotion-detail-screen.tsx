@@ -29,12 +29,12 @@ export function PromotionDetailScreen({ promotion, onAddPromotion, onBack, onNav
   const estimatedUnitBase = individualTotal > 0 ? promotion.price * 1.18 : promotion.price
   const estimatedSavings = Math.max(0, estimatedUnitBase - promotion.price)
   const total = promotion.price * quantity
-  const typeLabels: Record<PromotionCartItem["promotionType"], string> = {
+  const typeLabels: Record<NonNullable<PromotionCartItem["promotionType"]>, string> = {
     porcentaje: "Descuento porcentual",
     nxm: "Llevá N pagá M",
     combo_fijo: "Combo de precio fijo",
   }
-  const scopeLabels: Record<PromotionCartItem["promotionScope"], string> = {
+  const scopeLabels: Record<NonNullable<PromotionCartItem["promotionScope"]>, string> = {
     producto: "Producto",
     rubro: "Rubro",
     marca: "Marca",
@@ -43,7 +43,7 @@ export function PromotionDetailScreen({ promotion, onAddPromotion, onBack, onNav
 
   return (
     <div className="flex flex-col h-full">
-      <header className="bg-primary px-4 pt-6 pb-4 rounded-b-xl shadow-lg relative z-10">
+      <header className="legacy-store-header">
         <div className="flex items-center justify-between">
           <button onClick={onBack} className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center border border-white/30" aria-label="Volver">
             <ArrowLeft className="w-5 h-5 text-white" />
@@ -62,7 +62,9 @@ export function PromotionDetailScreen({ promotion, onAddPromotion, onBack, onNav
         </div>
       </header>
 
-      <div className="flex-1 overflow-auto p-4 space-y-4">
+      <div className="px-4 py-3 lg:px-0"><Button variant="ghost" onClick={onBack}><ArrowLeft className="mr-2 size-4" />Volver al catálogo</Button></div>
+      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-6">
+      <div className="min-w-0 flex-1 p-4 space-y-4 lg:p-0">
         <Card className="border border-amber-200 bg-amber-50/70 shadow-sm">
           <CardContent className="p-4 space-y-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Detalle de promoción</p>
@@ -71,11 +73,11 @@ export function PromotionDetailScreen({ promotion, onAddPromotion, onBack, onNav
             <div className="flex flex-wrap gap-2 pt-1">
               <span className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 text-[11px] font-semibold text-amber-800">
                 <BadgePercent className="h-3.5 w-3.5" />
-                {typeLabels[promotion.promotionType]}
+                {promotion.promotionType ? typeLabels[promotion.promotionType] : "Promoción"}
               </span>
               <span className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 text-[11px] font-semibold text-amber-800">
                 <Layers3 className="h-3.5 w-3.5" />
-                Aplica a {scopeLabels[promotion.promotionScope]}
+                Aplica a {promotion.promotionScope ? scopeLabels[promotion.promotionScope] : "Productos incluidos"}
               </span>
             </div>
             <div className="grid grid-cols-2 gap-3 pt-1 text-sm text-amber-900">
@@ -103,7 +105,7 @@ export function PromotionDetailScreen({ promotion, onAddPromotion, onBack, onNav
               <div key={`${promotion.cartKey}-${item.productId}`} className="flex items-center gap-3 rounded-lg border border-border p-2">
                 <img src={item.image || "/placeholder.svg"} alt={item.name} className="h-12 w-12 rounded-md object-cover bg-muted" />
                 <div className="min-w-0">
-                  <p className="text-sm font-medium truncate">{item.name}</p>
+                  <p className="text-sm font-medium">{item.name}</p>
                   <p className="text-xs text-muted-foreground">{item.quantity} unidad(es){item.brand ? ` · ${item.brand}` : ""}</p>
                 </div>
               </div>
@@ -126,16 +128,16 @@ export function PromotionDetailScreen({ promotion, onAddPromotion, onBack, onNav
         </Card>
       </div>
 
-      <div className="sticky bottom-0 bg-card border-t p-4 space-y-3">
+      <div className="bg-card border-t p-4 space-y-3 lg:sticky lg:top-6 lg:rounded-xl lg:border">
         <div className="flex items-center gap-3">
-          <Button variant="outline" size="icon" className="h-10 w-10" onClick={() => setQuantity((prev) => Math.max(1, prev - 1))}>
+          <Button variant="outline" size="icon" aria-label="Disminuir cantidad de promociones" disabled={quantity <= 1} className="h-11 w-11" onClick={() => setQuantity((prev) => Math.max(1, prev - 1))}>
             -
           </Button>
           <div className="flex-1 text-center">
             <p className="text-sm text-muted-foreground">Cantidad de combos</p>
             <p className="text-xl font-bold">{quantity}</p>
           </div>
-          <Button variant="outline" size="icon" className="h-10 w-10" onClick={() => setQuantity((prev) => prev + 1)}>
+          <Button variant="outline" size="icon" aria-label="Aumentar cantidad de promociones" className="h-11 w-11" onClick={() => setQuantity((prev) => prev + 1)}>
             +
           </Button>
         </div>
@@ -151,6 +153,7 @@ export function PromotionDetailScreen({ promotion, onAddPromotion, onBack, onNav
         >
           Agregar promoción al carrito
         </Button>
+      </div>
       </div>
     </div>
   )

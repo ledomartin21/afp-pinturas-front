@@ -1,10 +1,11 @@
 "use client"
 
 import { useState, useEffect, useMemo, useRef } from "react"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { QuickAddModal } from "@/components/modals/quick-add-modal"
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetDescription } from "@/components/ui/sheet"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -47,10 +48,6 @@ interface CatalogScreenProps {
   cart: CartItem[]
   onAddToCart: (product: Product, quantity?: number) => void
   onUpdateQuantity: (cartKey: string, quantity: number) => void
-  initialCategory?: string
-  initialSearch?: string
-  initialPreset?: "promotions" | "default"
-  navigationToken?: number
   isReserveApproved: (productId: string) => boolean
   onApproveReserve: (productId: string) => void
 }
@@ -96,25 +93,53 @@ function buildPromotionListing(products: Product[]) {
   return result
 }
 
-export function CatalogScreen({ onProductClick, onViewPromotion, onNavigate, onOpenMenu, cart, onAddToCart, onUpdateQuantity, initialCategory, initialSearch, initialPreset = "default", navigationToken, isReserveApproved, onApproveReserve }: CatalogScreenProps) {
+export function CatalogScreen({ onProductClick, onViewPromotion, onNavigate, onOpenMenu, cart, onAddToCart, onUpdateQuantity, isReserveApproved, onApproveReserve }: CatalogScreenProps) {
   const maxPrice = 50000
+  const router = useRouter()
+  const pathname = usePathname()
+  const params = useSearchParams()
+  const navigationRef = useRef({ pathname, params })
+  navigationRef.current = { pathname, params }
+  const updateFilters = (values: Record<string, string | null>, resetPage = true) => {
+    const next = new URLSearchParams(navigationRef.current.params.toString())
+    for (const [key, value] of Object.entries(values)) {
+      if (value) next.set(key, value)
+      else next.delete(key)
+    }
+    if (resetPage) next.delete("pagina")
+    router.replace(`${navigationRef.current.pathname}?${next}`, { scroll: false })
+  }
   const [isLoading, setIsLoading] = useState(true)
   const [products, setProducts] = useState<Product[]>([])
   const [totalProducts, setTotalProducts] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
   const [errorMessage, setErrorMessage] = useState("")
-  const [search, setSearch] = useState("")
-  const [searchInput, setSearchInput] = useState("")
-  const [filterPreset, setFilterPreset] = useState<"promotions" | "default">("default")
+  const search = params.get("buscar") || ""
+  const [searchInput, setSearchInput] = useState(search)
+  const filterPreset = pathname === "/promociones" ? "promotions" : "default"
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const loadRequestIdRef = useRef(0)
   const promotionsCacheRef = useRef<Map<string, Product[]>>(new Map())
-  const [selectedCategory, setSelectedCategory] = useState("Todas")
-  const [selectedBrands, setSelectedBrands] = useState<string[]>([])
-  const [priceRange, setPriceRange] = useState([0, 50000])
+  const selectedCategory = params.get("categoria") || "Todas"
+  const brandsParam = params.get("marcas") || ""
+  const selectedBrands = useMemo(() => brandsParam.split("|").filter(Boolean), [brandsParam])
+  const minParam = params.get("min")
+  const maxParam = params.get("max")
+  const priceRange = useMemo(() => {
+    const min = Math.min(maxPrice, Math.max(0, Number(minParam) || 0))
+    const max = maxParam === null || !Number.isFinite(Number(maxParam)) ? maxPrice : Math.min(maxPrice, Math.max(min, Number(maxParam)))
+    return [min, max]
+  }, [minParam, maxParam])
+  const setSelectedCategory = (category: string) => updateFilters({ categoria: category === "Todas" ? null : category })
+  const setPriceRange = (range: number[]) => updateFilters({ min: range[0] ? String(range[0]) : null, max: range[1] < maxPrice ? String(range[1]) : null })
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [quickAddOpen, setQuickAddOpen] = useState(false)
-  const [currentPage, setCurrentPage] = useState(1)
+  const requestedPage = Number(params.get("pagina"))
+  const currentPage = Number.isFinite(requestedPage) ? Math.max(1, Math.floor(requestedPage)) : 1
+  const setCurrentPage = (page: number | ((previous: number) => number)) => {
+    const nextPage = typeof page === "function" ? page(currentPage) : page
+    updateFilters({ pagina: nextPage > 1 ? String(nextPage) : null }, false)
+  }
   const [recentlyAddedId, setRecentlyAddedId] = useState<string | null>(null)
   const [comboPartnerPreviewByCode, setComboPartnerPreviewByCode] = useState<Record<string, { name: string; image: string }>>({})
 
@@ -176,17 +201,9 @@ export function CatalogScreen({ onProductClick, onViewPromotion, onNavigate, onO
   }, [products, productMetaByCode, comboPartnerPreviewByCode])
 
   useEffect(() => {
-    if (!navigationToken) return
-
-    setCurrentPage(1)
-    setSearch(initialSearch || "")
-    setSearchInput(initialSearch || "")
-    setFilterPreset(initialPreset)
-    setSelectedBrands([])
-    setPriceRange([0, maxPrice])
-    setSelectedCategory(initialCategory || "Todas")
-    setFiltersOpen(false)
-  }, [initialCategory, initialSearch, initialPreset, navigationToken])
+    setSearchInput(search)
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
+  }, [search, pathname])
 
   useEffect(() => {
     const loadProducts = async () => {
@@ -251,7 +268,9 @@ export function CatalogScreen({ onProductClick, onViewPromotion, onNavigate, onO
 
           setProducts(result.items)
           setTotalProducts(result.total)
-          setTotalPages(result.totalPages)
+          const validPages = Math.max(1, result.totalPages)
+          setTotalPages(validPages)
+          if (currentPage > validPages) setCurrentPage(validPages)
         }
 
         if (requestId === loadRequestIdRef.current) {
@@ -286,29 +305,19 @@ export function CatalogScreen({ onProductClick, onViewPromotion, onNavigate, onO
   }, [])
 
   const toggleBrand = (brand: string) => {
-    setSelectedBrands((prev) => (prev.includes(brand) ? prev.filter((b) => b !== brand) : [...prev, brand]))
+    const next = selectedBrands.includes(brand) ? selectedBrands.filter((b) => b !== brand) : [...selectedBrands, brand]
+    updateFilters({ marcas: next.join("|") || null })
   }
 
   const clearFilters = () => {
-    setSelectedBrands([])
-    setPriceRange([0, maxPrice])
-    setSelectedCategory("Todas")
-    setFilterPreset("default")
+    updateFilters({ marcas: null, min: null, max: null, categoria: null })
   }
 
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [search, selectedCategory, selectedBrands, priceRange])
-
-  useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages)
-    }
-  }, [currentPage, totalPages])
-
   // Scroll to top on page change
+  const previousPageRef = useRef(currentPage)
   useEffect(() => {
-    mainRef.current?.scrollTo({ top: 0, behavior: "smooth" })
+    if (previousPageRef.current !== currentPage) mainRef.current?.scrollIntoView({ block: "start" })
+    previousPageRef.current = currentPage
   }, [currentPage])
 
   const activeFiltersCount =
@@ -389,7 +398,7 @@ export function CatalogScreen({ onProductClick, onViewPromotion, onNavigate, onO
   const handleSearchInput = (value: string) => {
     setSearchInput(value)
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
-    searchTimerRef.current = setTimeout(() => setSearch(value), 400)
+    searchTimerRef.current = setTimeout(() => updateFilters({ buscar: value || null }), 400)
   }
 
   useEffect(() => {
@@ -427,9 +436,13 @@ export function CatalogScreen({ onProductClick, onViewPromotion, onNavigate, onO
 
   return (
     <div className="flex flex-col h-full">
-      <header className="relative z-10 overflow-hidden rounded-b-[1.7rem] bg-primary px-4 pb-5 pt-5 shadow-lg">
-        <div className="absolute inset-x-0 top-0 h-20 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.25),transparent_45%)]" />
-        <div className="relative mb-3.5 grid w-full grid-cols-3 items-center gap-3">
+      <header className="commerce-card relative z-10 overflow-hidden rounded-xl border-l-4 border-l-primary px-4 pb-4 pt-4 lg:flex lg:items-center lg:justify-between lg:gap-4 lg:p-5">
+        <div className="relative mb-4 lg:mb-0">
+          <p className="text-sm font-bold text-muted-foreground">Pedido online AFP</p>
+          <h1 className="text-2xl font-black tracking-[-0.035em] lg:text-3xl">{filterPreset === "promotions" ? "Promociones disponibles" : "Encontrá lo que necesitás"}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Buscá, revisá stock y sumá productos a tu pedido.</p>
+        </div>
+        <div className="hidden">
           <div className="flex justify-start">
             <button
               onClick={onOpenMenu}
@@ -461,23 +474,25 @@ export function CatalogScreen({ onProductClick, onViewPromotion, onNavigate, onO
             </button>
           </div>
         </div>
-        <div className="relative flex gap-2 rounded-[1.6rem] bg-white/14 p-1 shadow-[0_14px_28px_rgba(0,0,0,0.16)] backdrop-blur">
+        <div className="relative flex gap-2 lg:hidden">
           <div className="relative flex-1 rounded-[1.25rem] bg-white">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-primary/70" />
             <Input
               placeholder="Buscar producto"
+              aria-label="Buscar en el catálogo"
               value={searchInput}
               onChange={(e) => handleSearchInput(e.target.value)}
-              className="w-full h-11 rounded-[1.25rem] border-none bg-transparent pl-11 pr-4 text-sm font-medium shadow-none placeholder:text-muted-foreground focus-visible:ring-0"
+                className="w-full h-11 rounded-xl border bg-transparent pl-11 pr-4 text-base font-medium shadow-none placeholder:text-muted-foreground"
             />
           </div>
           <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
             <SheetTrigger asChild>
               <Button
                 size="icon"
-                  className="relative h-11 w-11 shrink-0 rounded-[1.25rem] border border-white/25 bg-white/15 hover:bg-white/20"
+                aria-label="Abrir filtros"
+                  className="relative h-11 w-11 shrink-0 rounded-xl bg-primary text-foreground lg:hidden"
               >
-                <SlidersHorizontal className="w-5 h-5 text-white" />
+                <SlidersHorizontal className="w-5 h-5 text-foreground" />
                 {activeFiltersCount > 0 && (
                   <Badge className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center text-xs bg-white text-primary font-bold">
                     {activeFiltersCount}
@@ -485,11 +500,12 @@ export function CatalogScreen({ onProductClick, onViewPromotion, onNavigate, onO
                 )}
               </Button>
             </SheetTrigger>
-            <SheetContent side="bottom" className="h-[85vh] rounded-t-3xl">
+              <SheetContent side="bottom" className="h-[85dvh] rounded-t-3xl">
               <SheetHeader className="pb-4 border-b">
                 <SheetTitle className="text-xl">Filtros</SheetTitle>
+                <SheetDescription>Filtrá por categoría, marca y precio.</SheetDescription>
               </SheetHeader>
-              <div className="mt-6 space-y-6 overflow-auto h-[calc(85vh-140px)] pb-4">
+              <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-4 pb-24">
                 <div>
                   <Label className="text-base font-semibold mb-3 block">Categoria</Label>
                   <div className="flex flex-wrap gap-2">
@@ -552,11 +568,11 @@ export function CatalogScreen({ onProductClick, onViewPromotion, onNavigate, onO
             </SheetContent>
           </Sheet>
         </div>
-        <div className="mt-2 flex justify-end pr-1">
+        <div className="relative mt-2 flex justify-end lg:mt-0">
           <button
             type="button"
             onClick={() => setQuickAddOpen(true)}
-            className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/18 px-3 py-1.5 text-[11px] font-semibold text-white shadow-[0_8px_20px_rgba(0,0,0,0.12)] backdrop-blur-sm transition-transform active:scale-[0.98]"
+            className="inline-flex min-h-11 items-center gap-2 rounded-2xl border bg-card px-3 py-2 text-sm font-bold text-foreground shadow-sm hover:bg-muted"
           >
             <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-primary">
               <ScanSearch className="h-3.5 w-3.5" />
@@ -567,7 +583,24 @@ export function CatalogScreen({ onProductClick, onViewPromotion, onNavigate, onO
       </header>
 
       {/* Main content */}
-      <main ref={mainRef} className="flex-1 overflow-auto px-4 pb-20 pt-3">
+      <div className="lg:mt-6 lg:grid lg:grid-cols-[260px_minmax(0,1fr)] lg:items-start lg:gap-6">
+      <aside aria-label="Filtros del catálogo" className="commerce-card sticky top-40 hidden rounded-[1.4rem] p-5 lg:block">
+        <div className="mb-5 flex items-center justify-between"><h2 className="font-bold">Filtros {activeFiltersCount > 0 && `(${activeFiltersCount})`}</h2><button onClick={clearFilters} className="min-h-11 text-sm underline underline-offset-4">Limpiar</button></div>
+        <label htmlFor="desktop-category" className="mb-2 block text-sm font-semibold">Categoría</label>
+        <select id="desktop-category" value={selectedCategory} onChange={(event) => setSelectedCategory(event.target.value)} className="mb-6 w-full min-w-0 rounded-lg border bg-background px-2 text-sm">
+          {categories.map((category) => <option key={category}>{category}</option>)}
+        </select>
+        <fieldset className="mb-6"><legend className="mb-2 text-sm font-semibold">Marcas</legend>
+          <div className="max-h-72 overflow-y-auto pr-2">{brands.map((brand) => <label key={brand} className="flex min-h-11 cursor-pointer items-center gap-3 text-sm"><Checkbox checked={selectedBrands.includes(brand)} onCheckedChange={() => toggleBrand(brand)} /><span className="min-w-0 break-words">{brand}</span></label>)}</div>
+        </fieldset>
+        <fieldset><legend className="mb-3 text-sm font-semibold">Rango de precio</legend>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="text-xs text-muted-foreground">Desde<input key={`min-${priceRange[0]}`} type="number" min={0} max={priceRange[1]} step={1000} defaultValue={priceRange[0]} onBlur={(event) => setPriceRange([Math.min(priceRange[1], Math.max(0, Number(event.target.value))), priceRange[1]])} className="mt-1 w-full rounded-lg border bg-background px-2 text-sm text-foreground" /></label>
+            <label className="text-xs text-muted-foreground">Hasta<input key={`max-${priceRange[1]}`} type="number" min={priceRange[0]} max={maxPrice} step={1000} defaultValue={priceRange[1]} onBlur={(event) => setPriceRange([priceRange[0], Math.min(maxPrice, Math.max(priceRange[0], Number(event.target.value)))])} className="mt-1 w-full rounded-lg border bg-background px-2 text-sm text-foreground" /></label>
+          </div>
+        </fieldset>
+      </aside>
+      <section ref={mainRef} aria-label="Resultados del catálogo" aria-busy={isLoading} className="min-w-0 flex-1 px-4 pb-8 pt-3 lg:p-0">
         {isLoading ? (
           <div className="flex items-center justify-center h-64">
             <div className="text-center space-y-3">
@@ -585,67 +618,77 @@ export function CatalogScreen({ onProductClick, onViewPromotion, onNavigate, onO
 
             {/* Info de resultados */}
              {totalProducts > 0 && (
-               <p className="text-xs text-muted-foreground text-center pt-2">
+                <p role="status" className="commerce-chip pt-2 lg:pt-0">
                   {filterPreset === "promotions"
                     ? `${totalProducts} promoción${totalProducts !== 1 ? "es" : ""} encontrada${totalProducts !== 1 ? "s" : ""}`
                     : `${totalProducts} producto${totalProducts !== 1 ? "s" : ""} encontrado${totalProducts !== 1 ? "s" : ""}`}
                 </p>
               )}
 
-               <div className="space-y-2.5">
+                <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
                  {products.map((product) => {
                  const qty = getCartQuantity(product.id)
                  const hasCheckoutPromo = product.promotion?.aplicaEnCheckout && product.promoPrice && product.promotion?.tipo === "porcentaje"
                  const effectivePrice = hasCheckoutPromo ? (product.promoPrice ?? product.price) : product.price
                  const isHighlighted = recentlyAddedId === product.id
                  return (
-                   <div
-                     key={product.id}
-                      className={`flex gap-2.5 rounded-[1.35rem] border bg-card p-2.5 shadow-[0_10px_22px_rgba(15,23,42,0.06)] transition-all ${
-                        isHighlighted ? "border-primary/40 ring-2 ring-primary/15" : "border-border"
-                      }`}
+                    <article
+                      key={product.id}
+                        className={`commerce-card group flex min-h-full flex-col overflow-hidden rounded-xl transition-all hover:-translate-y-0.5 ${
+                         isHighlighted ? "border-primary/40 ring-2 ring-primary/15" : "border-border"
+                       }`}
                     >
-                      <div
-                        className="h-[5.25rem] w-[5.25rem] shrink-0 overflow-hidden rounded-[1rem] bg-muted cursor-pointer"
+                       <button
+                        aria-label={`Ver ${product.name}`}
+                        className="relative aspect-[4/3] w-full overflow-hidden bg-white cursor-pointer"
                         onClick={() => onProductClick(product)}
                       >
                       <img
                         alt={product.name}
-                        className="h-full w-full object-contain"
-                        src={product.image || "/placeholder.svg"}
-                      />
-                    </div>
-                     <div className="flex flex-1 flex-col justify-between">
+                        className="h-full w-full object-contain p-4 transition-transform duration-300 group-hover:scale-[1.04]"
+                         src={product.image || "/placeholder.svg"}
+                         loading="lazy"
+                       />
+                      {product.isPromo && product.promotion && (
+                        <span className="absolute left-3 top-3 rounded-full bg-foreground px-2.5 py-1 text-[10px] font-black text-background shadow-sm">
+                          PROMO
+                        </span>
+                      )}
+                      {product.stock === 0 && (
+                        <span className="absolute right-3 top-3 rounded-full bg-destructive px-2.5 py-1 text-[10px] font-black text-white shadow-sm">Sin stock</span>
+                      )}
+                    </button>
+                     <div className="min-w-0 flex flex-1 flex-col justify-between p-3 pt-3">
                       <div
                         className="cursor-pointer"
                         onClick={() => onProductClick(product)}
                       >
-                        <p className="mb-0.5 text-[10px] font-bold uppercase tracking-wider text-destructive">
+                          <p className="mb-1 text-[10px] font-bold tracking-wider text-destructive">
                           {product.id}
                         </p>
-                        <h3 className="text-[13px] font-semibold leading-tight line-clamp-2 text-foreground">
-                          {product.name}
+                        <h3 className="line-clamp-2 min-h-[2.25rem] text-sm font-black leading-tight text-foreground">
+                          <button className="text-left hover:underline" onClick={(event) => { event.stopPropagation(); onProductClick(product) }}>{product.name}</button>
                         </h3>
-                        <p className="mt-0.5 text-[11px] text-muted-foreground">{product.category}{product.brand ? ` · ${product.brand}` : ""}</p>
-                        <div className="mt-0.5 flex items-center gap-1.5">
+                        <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{product.category}{product.brand ? ` · ${product.brand}` : ""}</p>
+                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
                           <div>
                             {hasCheckoutPromo ? (
                               <>
                                 <p className="text-[10px] text-muted-foreground line-through">
                                   ${product.price.toLocaleString("es-AR")}
                                 </p>
-                                <p className="text-lg font-extrabold text-primary">
+                                <p className="text-2xl font-black text-primary">
                                   ${effectivePrice.toLocaleString("es-AR")}
                                 </p>
                               </>
                             ) : (
-                              <p className="text-lg font-extrabold text-foreground">
+                              <p className="text-2xl font-black text-foreground">
                                 ${product.price.toLocaleString("es-AR")}
                               </p>
                             )}
                           </div>
                           {product.isPromo && product.promotion && (
-                            <Badge className="bg-accent text-white text-[10px] font-bold">
+                            <Badge className="bg-primary text-foreground text-[10px] font-black">
                               {product.promotion.tipo === "nxm"
                                 ? `${product.promotion.cantidadLleva}x${product.promotion.cantidadPaga}`
                                 : product.promotion.tipo === "combo_fijo"
@@ -654,7 +697,7 @@ export function CatalogScreen({ onProductClick, onViewPromotion, onNavigate, onO
                             </Badge>
                           )}
                           {product.stock === 0 && (
-                            <span className="text-[10px] font-semibold text-destructive bg-destructive/10 px-1.5 py-0.5 rounded">Sin stock</span>
+                            <span className="text-[10px] font-bold text-destructive bg-destructive/10 px-1.5 py-0.5 rounded">Reservable</span>
                           )}
                         </div>
                         {product.promotion?.tipo === "combo_fijo" && (
@@ -698,22 +741,24 @@ export function CatalogScreen({ onProductClick, onViewPromotion, onNavigate, onO
                           </>
                         )}
                       </div>
-                        <div className="mt-1.5 flex items-center justify-between gap-2">
+                        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t pt-3">
                          {qty > 0 ? (
                             <span className="rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-700">
                               {qty} agregado{qty > 1 ? "s" : ""}
                             </span>
                           ) : (
-                            <span className="text-[10px] font-medium text-muted-foreground">Sumalo en un toque</span>
+                            <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Agregar al pedido</span>
                           )}
 
                          <div className="flex items-center gap-1.5">
                          {qty > 0 && qty >= product.stock && (
                            <CalendarClock className="w-3.5 h-3.5 text-amber-500" />
                          )}
-                          <div className="flex items-center rounded-2xl border border-border bg-muted/60 p-0.5 shadow-inner">
+                           <div className="flex items-center rounded-2xl border border-border bg-muted/60 p-0.5 shadow-inner">
                             <button
-                              className="flex h-8.5 w-8.5 items-center justify-center rounded-xl text-destructive hover:bg-card"
+                              aria-label={`Quitar una unidad de ${product.name}`}
+                              disabled={qty === 0}
+                              className="flex h-11 w-11 items-center justify-center rounded-xl text-destructive hover:bg-card disabled:opacity-40"
                               onClick={() => {
                                 if (qty > 0) onUpdateQuantity(`product:${product.id}`, qty - 1)
                               }}
@@ -724,7 +769,8 @@ export function CatalogScreen({ onProductClick, onViewPromotion, onNavigate, onO
                               {qty}
                             </span>
                              <button
-                              className="flex h-8.5 w-8.5 items-center justify-center rounded-xl text-primary hover:bg-card"
+                              aria-label={`Agregar una unidad de ${product.name}`}
+                              className="flex h-11 w-11 items-center justify-center rounded-xl text-foreground hover:bg-muted"
                               onClick={() => handlePlusClick(product, qty)}
                              >
                                <Plus className="w-4 h-4" />
@@ -735,14 +781,14 @@ export function CatalogScreen({ onProductClick, onViewPromotion, onNavigate, onO
                         {product.promotion && (
                           <button
                             type="button"
-                            className="mt-2 rounded-lg border border-amber-300 bg-amber-50 px-2 py-1 text-[10px] font-semibold text-amber-800"
+                            className="mt-2 rounded-xl border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-[10px] font-black text-amber-800"
                             onClick={() => onViewPromotion(product)}
                           >
                             Ver promoción
                           </button>
                         )}
                       </div>
-                    </div>
+                    </article>
                  )
                })}
              </div>
@@ -751,6 +797,7 @@ export function CatalogScreen({ onProductClick, onViewPromotion, onNavigate, onO
               <div className="flex items-center justify-center gap-1 py-4">
                 <button
                   className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted disabled:opacity-30"
+                  aria-label="Página anterior"
                   disabled={currentPage === 1}
                   onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
                 >
@@ -761,9 +808,11 @@ export function CatalogScreen({ onProductClick, onViewPromotion, onNavigate, onO
                     <span key={`dots-${idx}`} className="px-1 text-muted-foreground">...</span>
                   ) : (
                     <button
-                      key={`page-${item}`}
+                       key={`page-${item}`}
+                       aria-label={`Página ${item}`}
+                       aria-current={currentPage === item ? "page" : undefined}
                       className={`flex h-10 w-10 items-center justify-center rounded-lg font-bold text-sm transition-colors ${
-                        currentPage === item ? "bg-primary text-white" : "text-foreground hover:bg-muted"
+                        currentPage === item ? "bg-primary text-foreground" : "text-foreground hover:bg-muted"
                       }`}
                       onClick={() => setCurrentPage(item)}
                     >
@@ -773,6 +822,7 @@ export function CatalogScreen({ onProductClick, onViewPromotion, onNavigate, onO
                 )}
                 <button
                   className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted disabled:opacity-30"
+                  aria-label="Página siguiente"
                   disabled={currentPage === totalPages}
                   onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
                 >
@@ -793,11 +843,12 @@ export function CatalogScreen({ onProductClick, onViewPromotion, onNavigate, onO
 
           </>
         )}
-      </main>
+      </section>
+      </div>
 
       {/* Dialog de reserva */}
       <AlertDialog open={showReserveDialog} onOpenChange={setShowReserveDialog}>
-        <AlertDialogContent className="max-w-[90vw] rounded-2xl">
+        <AlertDialogContent className="max-w-[90vw] rounded-2xl sm:max-w-lg">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-lg">
               <AlertTriangle className="w-5 h-5 text-amber-500" />
